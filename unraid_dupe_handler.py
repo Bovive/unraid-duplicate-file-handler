@@ -6,7 +6,8 @@ from pathlib import Path
 from tqdm import tqdm
 
 # Constants
-CONFIG_PATH = Path(__file__).parent / "dupe_config.conf"
+CONFIG_PATH = Path("/config/dupe_config.conf")
+CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
 SESSION_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 DEFAULT_KEEP_STRATEGY = "newest"
 
