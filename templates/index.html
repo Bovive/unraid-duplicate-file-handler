@@ -46,12 +46,6 @@
 <body>
     <h1>Unraid Duplicate File Handler</h1>
     <form action="/scan" method="post">
-        <label for="scan_output_dir">Scan Output Directory</label>
-        <input type="text" id="scan_output_dir" name="scan_output_dir" required>
-
-        <label for="log_output_dir">Log Output Directory</label>
-        <input type="text" id="log_output_dir" name="log_output_dir" required>
-
         <label for="source_choice">Source Choice</label>
         <select id="source_choice" name="source_choice">
             <option value="1">Array only</option>
@@ -75,6 +69,7 @@
 
         <button type="submit">Start Scan</button>
     </form>
+
 
     {% if result %}
     <div class="result">

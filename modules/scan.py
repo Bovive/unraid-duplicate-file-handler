@@ -14,7 +14,8 @@ def scan_for_duplicates():
     ext_filter = []
     keep_strategy = "newest"
 
-    scan_output_dir = "/config/scan_results"
+    # Fixed output directory
+    scan_output_dir = "/output/scan_results"
     os.makedirs(scan_output_dir, exist_ok=True)
 
     file_index = {}
