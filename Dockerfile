@@ -1,13 +1,18 @@
+# Use a lightweight Python image
 FROM python:3.9-slim
 
-ENV PYTHONUNBUFFERED=1
-
+# Set working directory
 WORKDIR /app
 
-COPY unraid_dupe_handler.py /app/
-COPY requirements.txt /app/
+# Copy source code into container
+COPY app.py requirements.txt /app/
+COPY templates/ /app/templates/
 
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Override /bin/sh to point to our script via a wrapper
-RUN echo '#!/bin/sh\nexec python /app/unraid_dupe_handler.py' > /bin/custom_shell && chmod +x /bin/custom_shell && ln -sf /bin/custom_shell /bin/sh
+# Expose Flask default port
+EXPOSE 5000
+
+# Run the Flask app
+CMD ["python", "app.py"]
