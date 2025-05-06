@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Unraid Duplicate File Handler</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            max-width: 600px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .back-button {
+            margin-top: 1.5rem;
+            padding: 0.75rem 1.5rem;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        .back-button:hover {
+            background-color: #d32f2f;
+        }
+        .result {
+            margin-top: 2rem;
+            background: #e8f5e9;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .result h2 {
+            color: #2e7d32;
+        }
+        .result p {
+            margin: 0.5rem 0;
+        }
+        .result a {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .result a:hover {
+            background-color: #45a049;
+        }
+        .progress-container {
+            margin-top: 2rem;
+            display: none;
+        }
+        .progress-bar {
+            width: 100%;
+            background-color: #f3f3f3;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .progress-bar-inner {
+            height: 20px;
+            width: 0%;
+            background-color: #4CAF50;
+            border-radius: 5px;
+            transition: width 0.2s ease;
+        }
+        .progress-text {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #333;
+        }
+    </style>
+    <script>
+        function updateDrives() {
+            const sourceChoice = document.getElementById("source_choice").value;
+            const drivesField = document.getElementById("drives");
+            const drives = {
+                "1": ["/mnt/array1", "/mnt/array2"],
+                "2": ["/mnt/pool1", "/mnt/pool2"],
+                "3": ["/mnt/array1", "/mnt/array2", "/mnt/pool1", "/mnt/pool2"]
+            };
+            drivesField.innerHTML = "";
+            if (drives[sourceChoice]) {
+                drives[sourceChoice].forEach(drive => {
+                    const option = document.createElement("option");
+                    option.value = drive;
+                    option.textContent = drive;
+                    drivesField.appendChild(option);
+                });
+            }
+        }
+
+        function startProgress() {
+            const progressContainer = document.getElementById("progress-container");
+            const progressBarInner = document.getElementById("progress-bar-inner");
+            const progressText = document.getElementById("progress-text");
+
+            progressContainer.style.display = "block";
+
+            function updateProgress() {
+                fetch("/progress")
+                    .then(response => response.json())
+                    .then(data => {
+                        const progress = data.progress;
+                        progressBarInner.style.width = progress + "%";
+                        progressText.textContent = progress + "% Complete";
+
+                        if (progress < 100) {
+                            setTimeout(updateProgress, 500); // Poll every 500ms
+                        }
+                    });
+            }
+
+            updateProgress();
+        }
+
+        // Start progress tracking when the form is submitted
+        document.addEventListener("DOMContentLoaded", () => {
+            const form = document.querySelector("form");
+            form.addEventListener("submit", (event) => {
+                startProgress();
+            });
+        });
+    </script>
+</head>
+<body>
+    <h1>Unraid Duplicate File Handler</h1>
+    <form method="post">
+        {{ form.hidden_tag() }}
+        <div>
+            {{ form.source_choice.label }}
+            {{ form.source_choice(class="form-control", id="source_choice", onchange="updateDrives()") }}
+        </div>
+        <div>
+            {{ form.drives.label }}
+            <select id="drives" name="drives" multiple class="form-control">
+                <!-- Options will be populated dynamically -->
+            </select>
+        </div>
+        <div>
+            {{ form.min_size.label }}
+            {{ form.min_size(class="form-control") }}
+        </div>
+        <div>
+            {{ form.ext_filter.label }}
+            {{ form.ext_filter(class="form-control") }}
+        </div>
+        <div>
+            {{ form.keep_strategy.label }}
+            {{ form.keep_strategy(class="form-control") }}
+        </div>
+        <div>
+            {{ form.submit(class="btn btn-primary") }}
+        </div>
+    </form>
+
+    <div id="progress-container" class="progress-container">
+        <div class="progress-bar">
+            <div id="progress-bar-inner" class="progress-bar-inner"></div>
+        </div>
+        <p id="progress-text" class="progress-text">0% Complete</p>
+    </div>
+
+    <a href="/" class="back-button">Back to Main Menu</a>
+
+    {% if scan_results %}
+    <div class="result">
+        <h2>Scan Complete</h2>
+        <p><strong>Total Duplicate Files:</strong> {{ scan_results.total_duplicates }}</p>
+        <p><strong>Disks with Duplicates:</strong> {{ scan_results.disks_with_duplicates | join(', ') }}</p>
+        <p><strong>Total Size of Extra Files:</strong> {{ scan_results.total_duplicate_size | filesizeformat }}</p>
+        <a href="{{ scan_results.csv_file }}" download>Download Results</a>
+    </div>
+    {% endif %}
+</body>
+</html>
+
+
+

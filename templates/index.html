@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Unraid Duplicate File Handler</title>
+    <title>Main Menu</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,70 +12,53 @@
         h1 {
             color: #333;
         }
-        form {
+        .menu {
             background: white;
             padding: 1.5rem;
             border-radius: 8px;
-            max-width: 600px;
+            max-width: 400px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
-        label {
-            font-weight: bold;
+        .menu a {
             display: block;
-            margin-top: 1rem;
-        }
-        input[type="text"], input[type="number"], select {
-            width: 100%;
-            padding: 0.5rem;
-            margin-top: 0.25rem;
-        }
-        button {
-            margin-top: 1.5rem;
+            margin: 1rem 0;
             padding: 0.75rem 1.5rem;
             background-color: #4CAF50;
             color: white;
-            border: none;
+            text-decoration: none;
+            text-align: center;
             border-radius: 5px;
             font-size: 1rem;
         }
-        .result {
+        .menu a:hover {
+            background-color: #45a049;
+        }
+        .footer {
             margin-top: 2rem;
+            font-size: 0.9rem;
+            color: #666;
+            text-align: center;
+        }
+        .footer a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-    <h1>Unraid Duplicate File Handler</h1>
-    <form action="/scan" method="post">
-        <label for="source_choice">Source Choice</label>
-        <select id="source_choice" name="source_choice">
-            <option value="1">Array only</option>
-            <option value="2">Pool only</option>
-            <option value="3">Both Array and Pool</option>
-        </select>
-
-        <label for="min_size">Minimum File Size (bytes)</label>
-        <input type="number" id="min_size" name="min_size">
-
-        <label for="ext_filter">File Extensions (comma-separated)</label>
-        <input type="text" id="ext_filter" name="ext_filter">
-
-        <label for="keep_strategy">Keep Strategy</label>
-        <select id="keep_strategy" name="keep_strategy">
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="largest">Largest</option>
-            <option value="smallest">Smallest</option>
-        </select>
-
-        <button type="submit">Start Scan</button>
-    </form>
-
-
-    {% if result %}
-    <div class="result">
-        <h2>Scan Complete</h2>
-        <p>{{ result }}</p>
+    <h1>{{ app_name }}</h1>
+    <div class="menu">
+        <a href="/scan">Start Scan</a>
+        <a href="/cleanup">Cleanup Duplicates</a>
     </div>
-    {% endif %}
+    <div class="footer">
+        <p>Version: {{ app_version }}</p>
+        <p><a href="https://github.com/Bovive/unraid-duplicate-file-handler" target="_blank">Help & Documentation</a></p>
+    </div>
 </body>
 </html>
+
+
