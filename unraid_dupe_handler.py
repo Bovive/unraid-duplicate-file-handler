@@ -3,6 +3,7 @@ import sys
 import csv
 from datetime import datetime
 from pathlib import Path
+from tqdm import tqdm
 
 # Constants
 CONFIG_PATH = Path(__file__).parent / "dupe_config.conf"
@@ -91,20 +92,25 @@ def scan_for_duplicates():
     # Scan for duplicates
     print("🔍 Scanning selected disks...")
     file_index = {}
-    for disk in selected_disks:
-        for root, _, files in os.walk(disk):
-            for file in files:
-                file_path = os.path.join(root, file)
-                if min_size and os.path.getsize(file_path) < int(min_size):
-                    continue
-                if ext_filter and not file.endswith(tuple(ext_filter.split(","))):
-                    continue
+    total_files = sum(len(files) for disk in selected_disks for _, _, files in os.walk(disk))  # Count total files
+    with tqdm(total=total_files, desc="Scanning files", unit="file") as pbar:  # Initialize progress bar
+        for disk in selected_disks:
+            for root, _, files in os.walk(disk):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    if min_size and os.path.getsize(file_path) < int(min_size):
+                        pbar.update(1)  # Update progress bar
+                        continue
+                    if ext_filter and not file.endswith(tuple(ext_filter.split(","))):
+                        pbar.update(1)  # Update progress bar
+                        continue
 
-                # Get the relative path of the file
-                rel_path = os.path.relpath(file_path, disk)
-                if rel_path not in file_index:
-                    file_index[rel_path] = []
-                file_index[rel_path].append(file_path)
+                    # Get the relative path of the file
+                    rel_path = os.path.relpath(file_path, disk)
+                    if rel_path not in file_index:
+                        file_index[rel_path] = []
+                    file_index[rel_path].append(file_path)
+                    pbar.update(1)  # Update progress bar
 
     # Save results to CSV
     csv_file = Path(scan_output_dir) / f"duplicates_{SESSION_TIMESTAMP}.csv"
@@ -122,7 +128,6 @@ def scan_for_duplicates():
                 group_id += 1
 
     print(f"✅ Duplicate detection complete. Results saved to: {csv_file}")
-
 
 def main():
     """Main menu."""
