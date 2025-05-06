@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app
 from modules.scan import scan_for_duplicates, get_array_drives, get_pool_drives
 from modules.forms import ScanForm
-from config import APP_NAME, APP_VERSION
+from ..config import APP_NAME, APP_VERSION
 
 # Create a Blueprint for routes
 routes = Blueprint("routes", __name__)
