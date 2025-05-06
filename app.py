@@ -7,8 +7,12 @@ from flask import Flask
 sys.path.append(str(Path(__file__).resolve().parent))
 
 from modules.routes import routes  # Import the Blueprint
+from config import SECRET_KEY  # Import the secret key
 
 app = Flask(__name__)
+
+# Set the secret key for CSRF protection
+app.secret_key = SECRET_KEY
 
 # Register the Blueprint
 app.register_blueprint(routes)
