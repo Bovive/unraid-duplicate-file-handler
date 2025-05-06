@@ -1,5 +1,8 @@
 FROM python:3.9-slim
 
+# Disable Python output buffering
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 COPY unraid_dupe_handler.py /app/
