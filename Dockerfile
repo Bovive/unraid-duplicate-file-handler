@@ -9,7 +9,8 @@ COPY requirements.txt /app/
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Run script automatically when bash shell is opened
-RUN echo 'python /app/unraid_dupe_handler.py' >> /root/.bashrc
+# Create a wrapper that always runs the script when the container shell is opened
+RUN echo '#!/bin/sh\npython /app/unraid_dupe_handler.py' > /usr/local/bin/dupe_entrypoint && chmod +x /usr/local/bin/dupe_entrypoint
 
-CMD ["python", "unraid_dupe_handler.py"]
+# Set that wrapper as the default shell
+CMD ["/usr/local/bin/dupe_entrypoint"]
