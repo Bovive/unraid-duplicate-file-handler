@@ -5,7 +5,7 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # Copy source code into container
-COPY app.py requirements.txt /app/
+COPY app.py requirements.txt config.py /app/
 COPY templates/ /app/templates/
 COPY modules/ /app/modules/
 
