@@ -34,31 +34,6 @@
     .back-button:hover {
         background-color: #d32f2f;
     }
-    .result {
-        margin-top: 2rem;
-        background: #e8f5e9;
-        padding: 1rem;
-        border-radius: 8px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
-    .result h2 {
-        color: #2e7d32;
-    }
-    .result p {
-        margin: 0.5rem 0;
-    }
-    .result a {
-        display: inline-block;
-        margin-top: 1rem;
-        padding: 0.5rem 1rem;
-        background-color: #4CAF50;
-        color: white;
-        text-decoration: none;
-        border-radius: 5px;
-    }
-    .result a:hover {
-        background-color: #45a049;
-    }
     .progress-container {
         margin-top: 2rem;
         display: none;
@@ -81,8 +56,23 @@
         font-size: 0.9rem;
         color: #333;
     }
+    .scan-summary {
+        margin-top: 2rem;
+        background: #e3f2fd;
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .scan-summary h2 {
+        color: #1565c0;
+    }
+    .scan-summary p {
+        margin: 0.5rem 0;
+    }
 </style>
 <script>
+    let isScanning = false;
+
     function updateDrives() {
         const sourceChoice = document.getElementById("source_choice").value;
         const drivesField = document.getElementById("drives");
@@ -104,7 +94,17 @@
         const progressContainer = document.getElementById("progress-container");
         const progressBarInner = document.getElementById("progress-bar-inner");
         const progressText = document.getElementById("progress-text");
+        const submitButton = document.querySelector(".btn.btn-primary");
+
+        // Disable the button and set scanning state
+        isScanning = true;
+        submitButton.disabled = true;
+
+        // Reset progress bar and text
+        progressBarInner.style.width = "0%";
+        progressText.textContent = "0% Complete";
         progressContainer.style.display = "block";
+
         function updateProgress() {
             fetch("/progress")
                 .then(response => response.json())
@@ -114,10 +114,53 @@
                     progressText.textContent = progress + "% Complete";
                     if (progress < 100) {
                         setTimeout(updateProgress, 500);
+                    } else {
+                        fetchSummary(); // Fetch the summary after completion
                     }
                 });
         }
+
+        function fetchSummary() {
+            fetch("/scan-summary")
+                .then(response => {
+                    if (response.status === 202) {
+                        // Retry if scan is not yet complete
+                        setTimeout(fetchSummary, 500);
+                    } else if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error("Failed to fetch scan summary.");
+                    }
+                })
+                .then(summary => {
+                    if (summary) {
+                        console.log("Scan summary fetched:", summary); // Debug log
+                        updateSummary(summary);
+                        isScanning = false; // Reset scanning state
+                        submitButton.disabled = false; // Re-enable the button
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching scan summary:", error);
+                    isScanning = false; // Reset scanning state on error
+                    submitButton.disabled = false; // Re-enable the button
+                });
+        }
+
         updateProgress();
+    }
+
+    function updateSummary(summary) {
+        const summaryContainer = document.getElementById("scan-summary");
+        summaryContainer.style.display = "block";
+
+        // Display formatted values directly from the backend
+        document.getElementById("total-duplicates").textContent = summary.total_duplicates || "0";
+        document.getElementById("total-size").textContent = summary.total_duplicate_size || "0.00 MB";
+        document.getElementById("time-taken").textContent = summary.time_taken
+            ? summary.time_taken.toFixed(2) + " seconds"
+            : "N/A";
+        document.getElementById("time-completed").textContent = summary.time_completed || "N/A";
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -125,6 +168,9 @@
         const form = document.querySelector("form");
         form.addEventListener("submit", (event) => {
             event.preventDefault();
+            if (isScanning) {
+                return; // Prevent multiple submissions
+            }
             startProgress();
             const formData = new FormData(form);
             fetch("/start_scan", {
@@ -133,13 +179,18 @@
             }).then(response => {
                 if (!response.ok) {
                     console.error("Failed to start scan.");
+                    isScanning = false; // Reset scanning state on failure
+                    document.querySelector(".btn.btn-primary").disabled = false;
                 }
             }).catch(error => {
                 console.error("Error starting scan:", error);
+                isScanning = false; // Reset scanning state on error
+                document.querySelector(".btn.btn-primary").disabled = false;
             });
         });
     });
 </script>
+
 {% endblock %}
 
 {% block content %}
@@ -167,7 +218,7 @@
         {{ form.keep_strategy(class="form-control", id="keep_strategy") }}
     </div>
     <div>
-        {{ form.submit(class="btn btn-primary") }}
+        {{ form.submit(class="btn btn-primary", type="submit") }}
     </div>
 </form>
 
@@ -176,6 +227,14 @@
         <div id="progress-bar-inner" class="progress-bar-inner"></div>
     </div>
     <p id="progress-text" class="progress-text">0% Complete</p>
+</div>
+
+<div id="scan-summary" class="scan-summary" style="display: none;">
+    <h2>Scan Summary</h2>
+    <p><strong>Total Duplicate Files:</strong> <span id="total-duplicates"></span></p>
+    <p><strong>Total Duplicate Size:</strong> <span id="total-size"></span></p>
+    <p><strong>Time Taken:</strong> <span id="time-taken"></span></p>
+    <p><strong>Time Completed:</strong> <span id="time-completed"></span></p>
 </div>
 
 <a href="/" class="back-button">Back to Main Menu</a>

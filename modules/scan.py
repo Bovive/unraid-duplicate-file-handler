@@ -6,6 +6,7 @@ import csv
 from tqdm import tqdm
 from flask import current_app
 from multiprocessing import Value
+from time import time
 
 SESSION_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
@@ -26,17 +27,24 @@ def get_pool_drives():
 
 def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_strategy="newest", app=None):
     """Scan the selected drives for duplicates and calculate metrics."""
-    # Push the application context if provided
+    start_time = time()  # Track the start time
+
     if app:
         with app.app_context():
-            # Use the /static/output directory
             static_dir = os.path.join(current_app.root_path, "static", "output")
             scan_output_dir = os.path.join(static_dir, "scan_results")
             try:
                 os.makedirs(scan_output_dir, exist_ok=True)
             except Exception as e:
                 print(f"Error creating output directory {scan_output_dir}: {e}")
-                return
+                return {
+                    "csv_file": None,
+                    "total_duplicates": 0,
+                    "disks_with_duplicates": [],
+                    "total_duplicate_size": 0,
+                    "time_taken": 0,
+                    "time_completed": datetime.now().strftime("%m/%d/%Y %I:%M:%S %p"),
+                }
     else:
         raise RuntimeError("Application context is required to run this function.")
 
@@ -52,11 +60,17 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
     processed_files = 0
 
     if total_files == 0:
-        # If no files are found, set progress to 100% and return
         with SCAN_PROGRESS.get_lock():
             SCAN_PROGRESS.value = 100
         print("No files found to scan.")
-        return
+        return {
+            "csv_file": None,
+            "total_duplicates": 0,
+            "disks_with_duplicates": [],
+            "total_duplicate_size": 0,
+            "time_taken": 0,
+            "time_completed": datetime.now().strftime("%m/%d/%Y %I:%M:%S %p"),
+        }
 
     with tqdm(total=total_files, desc="Scanning files", unit="file") as pbar:
         for disk in selected_disks:
@@ -64,7 +78,6 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
                 for file in files:
                     file_path = os.path.join(root, file)
                     try:
-                        # Apply filters
                         if min_size and os.path.getsize(file_path) < min_size:
                             continue
                         if ext_filter and not any(file.endswith(ext) for ext in ext_filter):
@@ -87,7 +100,6 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
         group_id = 1
         for rel_path, paths in file_index.items():
             if len(paths) > 1:
-                # Determine which file to keep based on the keep_strategy
                 if keep_strategy == "newest":
                     paths.sort(key=lambda p: os.path.getmtime(p), reverse=True)
                 elif keep_strategy == "oldest":
@@ -97,12 +109,10 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
                 elif keep_strategy == "smallest":
                     paths.sort(key=lambda p: os.path.getsize(p))
 
-                # Update metrics
-                total_duplicate_files += len(paths) - 1  # Exclude the "keep" file
-                total_duplicate_size += sum(os.path.getsize(p) for p in paths[1:])  # Size of extra files
-                disks_with_duplicates.update(os.path.dirname(p).split("/")[2] for p in paths)  # Extract disk names
+                total_duplicate_files += len(paths) - 1
+                total_duplicate_size += sum(os.path.getsize(p) for p in paths[1:])
+                disks_with_duplicates.update(os.path.dirname(p).split("/")[2] for p in paths)
 
-                # Write the results to the CSV
                 for path in paths:
                     mod_time = os.path.getmtime(path)
                     size = os.path.getsize(path)
@@ -110,15 +120,25 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
                     writer.writerow([group_id, rel_path, path, mod_time, size, keep])
                 group_id += 1
 
-    # Reset progress after completion
+    end_time = time()  # Track the end time
+    time_taken = end_time - start_time  # Calculate time taken
+
+    # Format total duplicate size in GB or MB
+    if total_duplicate_size >= 1024 ** 3:  # If size is greater than or equal to 1 GB
+        formatted_size = f"{total_duplicate_size / (1024 ** 3):.2f} GB"
+    else:
+        formatted_size = f"{total_duplicate_size / (1024 ** 2):.2f} MB"
+
     with SCAN_PROGRESS.get_lock():
         SCAN_PROGRESS.value = 100
         print("Scan complete. Progress set to 100%.")
 
     print(f"✅ Duplicate detection complete. Results saved to: {csv_file}")
     return {
-        "csv_file": str(csv_file),
-        "total_duplicates": total_duplicate_files,
-        "disks_with_duplicates": list(disks_with_duplicates),
-        "total_duplicate_size": total_duplicate_size,
+        "csv_file": str(csv_file) if csv_file else None,  # Convert Path object to string
+        "total_duplicates": f"{total_duplicate_files:,}",  # Add commas to the number
+        "disks_with_duplicates": list(disks_with_duplicates),  # Ensure it's a list
+        "total_duplicate_size": formatted_size,  # Use formatted size
+        "time_taken": float(time_taken),  # Ensure it's a float
+        "time_completed": datetime.now().strftime("%m/%d/%Y %I:%M:%S %p"),  # Formatted time
     }
