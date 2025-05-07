@@ -14,16 +14,46 @@ SESSION_TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 SCAN_PROGRESS = Value("i", 0)  # Shared integer initialized to 0
 
 def get_array_drives():
-    """Get list of mounted array drives under /mnt/diskX (excluding cache and parity)."""
-    return sorted(str(p) for p in Path("/mnt").glob("disk*") if p.is_dir())
+    """Get list of mounted array drives under /mnt/diskX (excluding /mnt/disks)."""
+    return sorted(
+        str(p) for p in Path("/mnt").glob("disk*") 
+        if p.is_dir() and not str(p).startswith("/mnt/disks")
+    )
 
 def get_pool_drives():
-    """Get list of mounted pool drives under /mnt (e.g., /mnt/cache, /mnt/poolname)."""
-    system_mounts = {"user", "user0", "disks"}
+    """Get list of mounted pool drives under /mnt (excluding /mnt/addons, /mnt/remotes, and /mnt/rootshare)."""
+    excluded_mounts = {"addons", "remotes", "rootshare", "user", "user0", "disks"}
     return sorted(
         str(p) for p in Path("/mnt").iterdir()
-        if p.is_dir() and not p.name.startswith("disk") and p.name not in system_mounts
+        if p.is_dir() and not p.name.startswith("disk") and p.name not in excluded_mounts
     )
+
+def clean_old_csv_files(directory, keep_count=5):
+    """Keep only the latest `keep_count` CSV files in the specified directory."""
+    csv_files = sorted(
+        Path(directory).glob("duplicates_*.csv"),
+        key=lambda f: f.stat().st_mtime,  # Sort by modification time
+        reverse=True,  # Newest files first
+    )
+    for old_file in csv_files[keep_count:]:  # Skip the latest `keep_count` files
+        try:
+            old_file.unlink()  # Delete the file
+            print(f"Deleted old CSV file: {old_file}")
+        except Exception as e:
+            print(f"Error deleting file {old_file}: {e}")
+
+def format_size(size_in_bytes):
+    """Format the size in bytes into a human-readable string with commas and appropriate units."""
+    units = ["bytes", "KB", "MB", "GB", "TB", "PB"]
+    size = size_in_bytes
+    unit_index = 0
+
+    while size >= 1024 and unit_index < len(units) - 1:
+        size /= 1024
+        unit_index += 1
+
+    # Format the size with commas and two decimal places
+    return f"{size:,.2f} {units[unit_index]}"
 
 def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_strategy="newest", app=None):
     """Scan the selected drives for duplicates and calculate metrics."""
@@ -100,34 +130,43 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
         group_id = 1
         for rel_path, paths in file_index.items():
             if len(paths) > 1:
-                if keep_strategy == "newest":
-                    paths.sort(key=lambda p: os.path.getmtime(p), reverse=True)
-                elif keep_strategy == "oldest":
-                    paths.sort(key=lambda p: os.path.getmtime(p))
-                elif keep_strategy == "largest":
-                    paths.sort(key=lambda p: os.path.getsize(p), reverse=True)
-                elif keep_strategy == "smallest":
-                    paths.sort(key=lambda p: os.path.getsize(p))
+                try:
+                    if keep_strategy == "newest":
+                        paths.sort(key=lambda p: os.path.getmtime(p) if os.path.exists(p) else 0, reverse=True)
+                    elif keep_strategy == "oldest":
+                        paths.sort(key=lambda p: os.path.getmtime(p) if os.path.exists(p) else float("inf"))
+                    elif keep_strategy == "largest":
+                        paths.sort(key=lambda p: os.path.getsize(p) if os.path.exists(p) else 0, reverse=True)
+                    elif keep_strategy == "smallest":
+                        paths.sort(key=lambda p: os.path.getsize(p) if os.path.exists(p) else float("inf"))
+                except Exception as e:
+                    print(f"Error sorting paths for {rel_path}: {e}")
+                    continue
 
                 total_duplicate_files += len(paths) - 1
-                total_duplicate_size += sum(os.path.getsize(p) for p in paths[1:])
-                disks_with_duplicates.update(os.path.dirname(p).split("/")[2] for p in paths)
+                total_duplicate_size += sum(os.path.getsize(p) for p in paths[1:] if os.path.exists(p))
+                disks_with_duplicates.update(os.path.dirname(p).split("/")[2] for p in paths if os.path.exists(p))
 
                 for path in paths:
-                    mod_time = os.path.getmtime(path)
-                    size = os.path.getsize(path)
-                    keep = "yes" if path == paths[0] else "no"
-                    writer.writerow([group_id, rel_path, path, mod_time, size, keep])
+                    if not os.path.exists(path):
+                        continue
+                    try:
+                        mod_time = os.path.getmtime(path)
+                        size = os.path.getsize(path)
+                        keep = "yes" if path == paths[0] else "no"
+                        writer.writerow([group_id, rel_path, path, mod_time, size, keep])
+                    except Exception as e:
+                        print(f"Error writing data for {path}: {e}")
                 group_id += 1
+
+    # Clean up old CSV files
+    clean_old_csv_files(scan_output_dir, keep_count=5)
 
     end_time = time()  # Track the end time
     time_taken = end_time - start_time  # Calculate time taken
 
-    # Format total duplicate size in GB or MB
-    if total_duplicate_size >= 1024 ** 3:  # If size is greater than or equal to 1 GB
-        formatted_size = f"{total_duplicate_size / (1024 ** 3):.2f} GB"
-    else:
-        formatted_size = f"{total_duplicate_size / (1024 ** 2):.2f} MB"
+    # Format total duplicate size using the helper function
+    formatted_size = format_size(total_duplicate_size)
 
     with SCAN_PROGRESS.get_lock():
         SCAN_PROGRESS.value = 100

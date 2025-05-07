@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm
 from wtforms import SelectField, IntegerField, StringField, SubmitField, SelectMultipleField
 from wtforms.validators import DataRequired, Optional
+from wtforms.widgets import ListWidget, CheckboxInput
 
 class ScanForm(FlaskForm):
     source_choice = SelectField(
@@ -17,6 +18,8 @@ class ScanForm(FlaskForm):
         choices=[],  # Choices will be populated dynamically
         validators=[Optional()],
         coerce=str,
+        widget=ListWidget(prefix_label=False),  # Render as a list
+        option_widget=CheckboxInput(),         # Render each option as a checkbox
     )
     min_size = IntegerField(
         "Minimum File Size (bytes)", validators=[Optional()]

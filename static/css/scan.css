@@ -1,0 +1,204 @@
+/* General Page Styling */
+body {
+    font-family: Arial, sans-serif;
+    margin: 2rem;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+h1 {
+    color: #444;
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+/* Form Styling */
+form {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    max-width: 700px;
+    margin: 0 auto;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    margin-top: 2rem;
+}
+
+    form div {
+        margin-bottom: 1.5rem;
+    }
+
+label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+input, select, .form-control {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+    max-width: fit-content;
+}
+
+    input:focus, select:focus {
+        border-color: #4CAF50;
+        outline: none;
+        box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+    }
+
+button, .btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+    button:hover, .btn:hover {
+        background-color: #45a049;
+    }
+
+.back-button {
+    position: absolute; /* Position the button absolutely */
+    top: 20px; /* Add margin from the top */
+    left: 20px; /* Add margin from the left */
+    padding: 0.75rem 1.5rem;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+    z-index: 10; /* Ensure it appears above other elements */
+}
+
+    .back-button:hover {
+        background-color: #d32f2f;
+    }
+
+/* Two-column layout for the scan page */
+.scan-container {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+    margin-right: 15%;
+    margin-left: 15%;
+}
+
+/* Left column: Form and progress bar */
+.left-column {
+    flex: 1;
+    max-width: 50%;
+}
+
+/* Right column: Summary */
+.right-column {
+    flex: 1;
+    max-width: 50%;
+}
+
+/* Drive Selection Styling */
+.form-check {
+    display: flex;
+    justify-content: space-between; /* Align label to the left and checkbox to the right */
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 5px;
+    max-width: fit-content;
+}
+
+    .form-check label {
+        flex-grow: 1; /* Allow the label to take up available space */
+        margin-right: 1rem; /* Add spacing between the label and checkbox */
+        white-space: nowrap; /* Prevent text from wrapping */
+        overflow: hidden; /* Hide overflowing text */
+        text-overflow: ellipsis; /* Add ellipsis for overflowing text */
+    }
+
+    .form-check input[type="checkbox"] {
+        flex-shrink: 0; /* Prevent the checkbox from shrinking */
+        width: auto; /* Ensure the checkbox has a consistent size */
+    }
+
+    /* Add striping for rows */
+    .form-check:nth-child(odd) {
+        background-color: #f9f9f9;
+    }
+
+    .form-check:nth-child(even) {
+        background-color: #ffffff;
+    }
+
+    /* Add hover effect for better usability */
+    .form-check:hover {
+        background-color: #e3f2fd;
+    }
+
+/* Progress Bar Styling */
+.progress-container {
+    margin-top: 2rem;
+    display: none;
+    text-align: center;
+}
+
+.progress-bar {
+    width: 100%;
+    background-color: #f3f3f3;
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 0 auto;
+    max-width: 600px;
+}
+
+.progress-bar-inner {
+    height: 20px;
+    width: 0%;
+    background-color: #4CAF50;
+    border-radius: 5px;
+    transition: width 0.4s ease;
+}
+
+.progress-text {
+    margin-top: 0.5rem;
+    font-size: 1rem;
+    color: #333;
+}
+
+/* Scan Summary Styling */
+.scan-summary {
+    margin-top: 2rem;
+    background: #ffffff;
+    padding-top: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    width: fit-content;
+    align-content: center;
+    margin-left: auto;
+    margin-right: auto;
+    padding-bottom: 1.5rem;
+    padding-left: 5rem;
+    padding-right: 5rem;
+}
+
+    .scan-summary h2 {
+        color: #1565c0;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .scan-summary p {
+        margin: 0.5rem 0;
+        font-size: 1rem;
+        color: #555;
+    }

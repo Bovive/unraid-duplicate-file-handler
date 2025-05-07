@@ -98,7 +98,6 @@ def cleanup():
 def progress():
     with SCAN_PROGRESS.get_lock():
         progress = SCAN_PROGRESS.value
-    print(f"Progress route called. Current progress: {progress}%")  # Add logging
     return {"progress": progress}
 
 @routes.route("/get_drives/<source_choice>", methods=["GET"])

@@ -3,73 +3,7 @@
 {% block title %}Scan for Duplicates{% endblock %}
 
 {% block head %}
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        margin: 2rem;
-        background-color: #f4f4f4;
-    }
-    h1 {
-        color: #333;
-    }
-    form {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 8px;
-        max-width: 600px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
-    .back-button {
-        margin-top: 1.5rem;
-        padding: 0.75rem 1.5rem;
-        background-color: #f44336;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        font-size: 1rem;
-        text-decoration: none;
-        display: inline-block;
-        text-align: center;
-    }
-    .back-button:hover {
-        background-color: #d32f2f;
-    }
-    .progress-container {
-        margin-top: 2rem;
-        display: none;
-    }
-    .progress-bar {
-        width: 100%;
-        background-color: #f3f3f3;
-        border-radius: 5px;
-        overflow: hidden;
-    }
-    .progress-bar-inner {
-        height: 20px;
-        width: 0%;
-        background-color: #4CAF50;
-        border-radius: 5px;
-        transition: width 0.2s ease;
-    }
-    .progress-text {
-        margin-top: 0.5rem;
-        font-size: 0.9rem;
-        color: #333;
-    }
-    .scan-summary {
-        margin-top: 2rem;
-        background: #e3f2fd;
-        padding: 1rem;
-        border-radius: 8px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
-    .scan-summary h2 {
-        color: #1565c0;
-    }
-    .scan-summary p {
-        margin: 0.5rem 0;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/scan.css') }}">
 <script>
     let isScanning = false;
 
@@ -81,10 +15,22 @@
             .then(response => response.json())
             .then(data => {
                 data.drives.forEach(drive => {
-                    const option = document.createElement("option");
-                    option.value = drive;
-                    option.textContent = drive;
-                    drivesField.appendChild(option);
+                    const checkbox = document.createElement("input");
+                    checkbox.type = "checkbox";
+                    checkbox.name = "drives";
+                    checkbox.value = drive;
+                    checkbox.id = `drive-${drive}`;
+
+                    const label = document.createElement("label");
+                    label.htmlFor = `drive-${drive}`;
+                    label.textContent = drive;
+
+                    const container = document.createElement("div");
+                    container.className = "form-check"; // Ensure the class is applied for styling
+                    container.appendChild(label); // Append the label first
+                    container.appendChild(checkbox); // Append the checkbox second
+
+                    drivesField.appendChild(container);
                 });
             })
             .catch(error => console.error("Error fetching drives:", error));
@@ -190,52 +136,58 @@
         });
     });
 </script>
-
 {% endblock %}
 
 {% block content %}
-<h1>Unraid Duplicate File Handler</h1>
-<form method="post">
-    {{ form.hidden_tag() }}
-    <div>
-        <label for="source_choice">{{ form.source_choice.label.text }}</label>
-        {{ form.source_choice(class="form-control", id="source_choice", onchange="updateDrives()") }}
-    </div>
-    <div>
-        <label for="drives">{{ form.drives.label.text }}</label>
-        {{ form.drives(class="form-control", id="drives") }}
-    </div>
-    <div>
-        <label for="min_size">{{ form.min_size.label.text }}</label>
-        {{ form.min_size(class="form-control", id="min_size") }}
-    </div>
-    <div>
-        <label for="ext_filter">{{ form.ext_filter.label.text }}</label>
-        {{ form.ext_filter(class="form-control", id="ext_filter") }}
-    </div>
-    <div>
-        <label for="keep_strategy">{{ form.keep_strategy.label.text }}</label>
-        {{ form.keep_strategy(class="form-control", id="keep_strategy") }}
-    </div>
-    <div>
-        {{ form.submit(class="btn btn-primary", type="submit") }}
-    </div>
-</form>
-
-<div id="progress-container" class="progress-container">
-    <div class="progress-bar">
-        <div id="progress-bar-inner" class="progress-bar-inner"></div>
-    </div>
-    <p id="progress-text" class="progress-text">0% Complete</p>
-</div>
-
-<div id="scan-summary" class="scan-summary" style="display: none;">
-    <h2>Scan Summary</h2>
-    <p><strong>Total Duplicate Files:</strong> <span id="total-duplicates"></span></p>
-    <p><strong>Total Duplicate Size:</strong> <span id="total-size"></span></p>
-    <p><strong>Time Taken:</strong> <span id="time-taken"></span></p>
-    <p><strong>Time Completed:</strong> <span id="time-completed"></span></p>
-</div>
-
 <a href="/" class="back-button">Back to Main Menu</a>
+<h1>Unraid Duplicate File Handler</h1>
+<div class="scan-container">
+    <!-- Left Column: Form and Progress Bar -->
+    <div class="left-column">
+        <form method="post">
+            {{ form.hidden_tag() }}
+            <div>
+                <label for="source_choice">{{ form.source_choice.label.text }}</label>
+                {{ form.source_choice(class="form-control", id="source_choice", onchange="updateDrives()") }}
+            </div>
+            <div>
+                <label for="drives">{{ form.drives.label.text }}</label>
+                <div id="drives"></div>
+            </div>
+            <div>
+                <label for="min_size">{{ form.min_size.label.text }}</label>
+                {{ form.min_size(class="form-control", id="min_size") }}
+            </div>
+            <div>
+                <label for="ext_filter">{{ form.ext_filter.label.text }}</label>
+                {{ form.ext_filter(class="form-control", id="ext_filter") }}
+            </div>
+            <div>
+                <label for="keep_strategy">{{ form.keep_strategy.label.text }}</label>
+                {{ form.keep_strategy(class="form-control", id="keep_strategy") }}
+            </div>
+            <div>
+                {{ form.submit(class="btn btn-primary", type="submit") }}
+            </div>
+        </form>
+
+        <div id="progress-container" class="progress-container">
+            <div class="progress-bar">
+                <div id="progress-bar-inner" class="progress-bar-inner"></div>
+            </div>
+            <p id="progress-text" class="progress-text">0% Complete</p>
+        </div>
+    </div>
+
+    <!-- Right Column: Summary -->
+    <div class="right-column">
+        <div id="scan-summary" class="scan-summary" style="display: none;">
+            <h2>Scan Summary</h2>
+            <p><strong>Total Duplicate Files:</strong> <span id="total-duplicates"></span></p>
+            <p><strong>Total Duplicate Size:</strong> <span id="total-size"></span></p>
+            <p><strong>Time Taken:</strong> <span id="time-taken"></span></p>
+            <p><strong>Time Completed:</strong> <span id="time-completed"></span></p>
+        </div>
+    </div>
+</div>
 {% endblock %}
