@@ -1,45 +1,55 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Cleanup Duplicates</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 2rem;
-            background-color: #f4f4f4;
-        }
-        h1 {
-            color: #333;
-        }
-        .container {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            max-width: 600px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-        button {
-            margin-top: 1.5rem;
-            padding: 0.75rem 1.5rem;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 1rem;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-    </style>
-</head>
-<body>
-    <h1>Cleanup Duplicates</h1>
-    <div class="container">
-        <p>This is a placeholder for the cleanup functionality.</p>
-        <button onclick="window.location.href='/'">Back to Main Menu</button>
-    </div>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Cleanup Duplicates{% endblock %}
+
+{% block head %}
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 2rem;
+        background-color: #f4f4f4;
+        justify-content: center;
+        display: grid;
+    }
+    h1 {
+        color: #333;
+    }
+    .container {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        max-width: 600px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+    button {
+        margin-top: 1.5rem;
+        padding: 0.75rem 1.5rem;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 1rem;
+        cursor: pointer;
+    }
+    button:hover {
+        background-color: #45a049;
+    }
+    .logo {
+        display: block;
+        margin: 0 auto 1rem auto;
+        max-width: 200px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<img src="{{ url_for('static', filename='images/logo-big.png') }}" alt="Unraid Duplicate File Handler Logo" class="logo">
+<h1>Cleanup Duplicates</h1>
+<div class="container">
+    <p>This is a placeholder for the cleanup functionality.</p>
+    <button onclick="window.location.href='/'">Back to Main Menu</button>
+</div>
+{% endblock %}
+
+
