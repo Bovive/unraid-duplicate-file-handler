@@ -66,6 +66,13 @@ button, .btn {
         background-color: #45a049;
     }
 
+    /* Disabled button styling */
+    button:disabled, .btn:disabled {
+        background-color: #ccc; /* Gray background */
+        color: #666; /* Dimmed text color */
+        cursor: not-allowed; /* Change cursor to indicate disabled state */
+    }
+
 .back-button {
     position: absolute; /* Position the button absolutely */
     top: 20px; /* Add margin from the top */
@@ -201,4 +208,25 @@ button, .btn {
         margin: 0.5rem 0;
         font-size: 1rem;
         color: #555;
+    }
+
+.drive-summary {
+    margin-top: 10px;
+}
+
+/* Cancel Button Styling */
+.btn-secondary {
+    background-color: #f44336; /* Red background */
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-left: 10px;
+}
+
+    .btn-secondary:hover {
+        background-color: #d32f2f; /* Darker red on hover */
     }

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Scan for Duplicates{% endblock %}
 
@@ -6,6 +6,84 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/scan.css') }}">
 <script>
     let isScanning = false;
+    let pollingInterval = null;
+    let cancelRequested = false;
+
+    function resetScanUI() {
+        const progressBarInner = document.getElementById("progress-bar-inner");
+        const progressText = document.getElementById("progress-text");
+        progressBarInner.style.width = "0%";
+        progressText.textContent = "0% Complete";
+
+        const summaryContainer = document.getElementById("scan-summary");
+        summaryContainer.style.display = "none";
+
+        document.getElementById("total-duplicates").textContent = "";
+        document.getElementById("total-size").textContent = "";
+        document.getElementById("time-taken").textContent = "";
+        document.getElementById("time-completed").textContent = "";
+
+        const driveSummaryTable = document.getElementById("drive-summary-table").querySelector("tbody");
+        driveSummaryTable.innerHTML = "";
+
+        document.getElementById("cancel-button").style.display = "none";
+    }
+
+    function formatNumberWithCommas(number) {
+        return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function resetScanState() {
+        cancelRequested = false;
+        isScanning = false;
+        const submitButton = document.querySelector(".btn.btn-primary");
+        submitButton.disabled = false;
+
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+    }
+
+    function waitForSummary() {
+        // Only stop if explicitly canceled
+        if (cancelRequested) {
+            console.log("⏹️ Polling stopped: scan was canceled.");
+            return;
+        }
+
+        fetch("/scan-summary")
+            .then(res => {
+                if (res.status === 202) {
+                document.getElementById("progress-text").textContent = "Finalizing summary...";
+                setTimeout(waitForSummary, 500);
+                return null;  // ❗ This only works *inside a .then() callback function*
+            }
+                return res.json();
+            })
+            .then(summary => {
+                if (!summary) return;
+
+                if (summary.error) {
+                    console.error("❌ Summary contains error:", summary.error);
+                    resetScanState();
+                    resetScanUI();
+                    document.getElementById("cancel-button").style.display = "none";
+                    return;
+                }
+
+                console.log("📦 Scan summary received:", summary);
+                updateSummary(summary);
+                resetScanState();
+                document.getElementById("cancel-button").style.display = "none";
+            })
+            .catch(error => {
+                console.error("⚠️ Error fetching scan summary:", error);
+                if (isScanning) {
+                    setTimeout(waitForSummary, 1000);
+                }
+            });
+    }
 
     function updateDrives() {
         const sourceChoice = document.getElementById("source_choice").value;
@@ -26,9 +104,9 @@
                     label.textContent = drive;
 
                     const container = document.createElement("div");
-                    container.className = "form-check"; // Ensure the class is applied for styling
-                    container.appendChild(label); // Append the label first
-                    container.appendChild(checkbox); // Append the checkbox second
+                    container.className = "form-check";
+                    container.appendChild(label);
+                    container.appendChild(checkbox);
 
                     drivesField.appendChild(container);
                 });
@@ -36,20 +114,57 @@
             .catch(error => console.error("Error fetching drives:", error));
     }
 
+    function cancelScan() {
+        cancelRequested = true;
+        fetch("/cancel_scan", { method: "POST" })
+            .then(response => {
+                if (response.ok) {
+                    console.log("🚫 Scan canceled.");
+                    resetScanState();
+                    resetScanUI();
+                    // 👇 Hide the progress bar completely
+                    document.getElementById("progress-container").style.display = "none";
+                } else {
+                    console.error("Failed to cancel scan.");
+                }
+            })
+            .catch(error => {
+                console.error("Error canceling scan:", error);
+            });
+    }
+
     function startProgress() {
         const progressContainer = document.getElementById("progress-container");
         const progressBarInner = document.getElementById("progress-bar-inner");
         const progressText = document.getElementById("progress-text");
         const submitButton = document.querySelector(".btn.btn-primary");
+        const cancelButton = document.getElementById("cancel-button");
+        const form = document.querySelector("form");
 
-        // Disable the button and set scanning state
+        resetScanState();
+        resetScanUI();
+
         isScanning = true;
         submitButton.disabled = true;
-
-        // Reset progress bar and text
-        progressBarInner.style.width = "0%";
-        progressText.textContent = "0% Complete";
+        cancelButton.style.display = "inline-block";
         progressContainer.style.display = "block";
+
+        const formData = new FormData(form);
+
+        fetch("/start_scan", {
+            method: "POST",
+            body: formData
+        }).then(response => {
+            if (response.ok) {
+                updateProgress();
+            } else {
+                console.error("Failed to start scan.");
+                resetScanState();
+            }
+        }).catch(error => {
+            console.error("Error starting scan:", error);
+            resetScanState();
+        });
 
         function updateProgress() {
             fetch("/progress")
@@ -58,55 +173,81 @@
                     const progress = data.progress;
                     progressBarInner.style.width = progress + "%";
                     progressText.textContent = progress + "% Complete";
+
                     if (progress < 100) {
                         setTimeout(updateProgress, 500);
                     } else {
-                        fetchSummary(); // Fetch the summary after completion
-                    }
-                });
-        }
-
-        function fetchSummary() {
-            fetch("/scan-summary")
-                .then(response => {
-                    if (response.status === 202) {
-                        // Retry if scan is not yet complete
-                        setTimeout(fetchSummary, 500);
-                    } else if (response.ok) {
-                        return response.json();
-                    } else {
-                        throw new Error("Failed to fetch scan summary.");
-                    }
-                })
-                .then(summary => {
-                    if (summary) {
-                        console.log("Scan summary fetched:", summary); // Debug log
-                        updateSummary(summary);
-                        isScanning = false; // Reset scanning state
-                        submitButton.disabled = false; // Re-enable the button
+                        waitForSummary();
                     }
                 })
                 .catch(error => {
-                    console.error("Error fetching scan summary:", error);
-                    isScanning = false; // Reset scanning state on error
-                    submitButton.disabled = false; // Re-enable the button
+                    console.error("Error updating progress:", error);
+                    resetScanState();
                 });
         }
-
-        updateProgress();
     }
 
     function updateSummary(summary) {
         const summaryContainer = document.getElementById("scan-summary");
         summaryContainer.style.display = "block";
 
-        // Display formatted values directly from the backend
         document.getElementById("total-duplicates").textContent = summary.total_duplicates || "0";
         document.getElementById("total-size").textContent = summary.total_duplicate_size || "0.00 MB";
         document.getElementById("time-taken").textContent = summary.time_taken
             ? summary.time_taken.toFixed(2) + " seconds"
             : "N/A";
         document.getElementById("time-completed").textContent = summary.time_completed || "N/A";
+
+        const driveSummaryContainer = document.getElementById("drive-summary-container");
+        const driveSummaryTable = document.getElementById("drive-summary-table").querySelector("tbody");
+        driveSummaryTable.innerHTML = "";
+
+        // Remove any existing no-duplicates message from prior scans
+        const existingMessage = document.getElementById("no-duplicates-message");
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+
+        if (!summary.drive_summary || Object.keys(summary.drive_summary).length === 0) {
+            // Hide the table
+            driveSummaryContainer.style.display = "none";
+
+            // Show a standalone message
+            const message = document.createElement("p");
+            message.id = "no-duplicates-message";
+            message.style.marginTop = "1rem";
+            message.style.fontWeight = "bold";
+            message.textContent = "✅ No duplicate files found.";
+            summaryContainer.appendChild(message);
+            return;
+        } else {
+            // Show the table again if there are duplicates
+            driveSummaryContainer.style.display = "block";
+        }
+
+        for (const [drive, data] of Object.entries(summary.drive_summary)) {
+            const row = document.createElement("tr");
+
+            const driveCell = document.createElement("td");
+            driveCell.textContent = drive;
+
+            const fileCountCell = document.createElement("td");
+            const rawCount = typeof data.file_count === "number"
+                ? data.file_count
+                : parseInt((data.file_count || "0").replace(/,/g, ""));
+            fileCountCell.textContent = formatNumberWithCommas(rawCount);
+
+            const totalSizeCell = document.createElement("td");
+            totalSizeCell.textContent = data.total_size || "0.00 MB";
+
+            [driveCell, fileCountCell, totalSizeCell].forEach(cell => {
+                cell.style.border = "1px solid #ddd";
+                cell.style.padding = "8px";
+                row.appendChild(cell);
+            });
+
+            driveSummaryTable.appendChild(row);
+        }
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -114,27 +255,14 @@
         const form = document.querySelector("form");
         form.addEventListener("submit", (event) => {
             event.preventDefault();
-            if (isScanning) {
-                return; // Prevent multiple submissions
+            if (!isScanning) {
+                startProgress();
             }
-            startProgress();
-            const formData = new FormData(form);
-            fetch("/start_scan", {
-                method: "POST",
-                body: formData
-            }).then(response => {
-                if (!response.ok) {
-                    console.error("Failed to start scan.");
-                    isScanning = false; // Reset scanning state on failure
-                    document.querySelector(".btn.btn-primary").disabled = false;
-                }
-            }).catch(error => {
-                console.error("Error starting scan:", error);
-                isScanning = false; // Reset scanning state on error
-                document.querySelector(".btn.btn-primary").disabled = false;
-            });
         });
+
+        document.getElementById("cancel-button").addEventListener("click", cancelScan);
     });
+
 </script>
 {% endblock %}
 
@@ -168,6 +296,7 @@
             </div>
             <div>
                 {{ form.submit(class="btn btn-primary", type="submit") }}
+                <button id="cancel-button" class="btn btn-secondary" style="display: none;">Cancel</button>
             </div>
         </form>
 
@@ -187,7 +316,25 @@
             <p><strong>Total Duplicate Size:</strong> <span id="total-size"></span></p>
             <p><strong>Time Taken:</strong> <span id="time-taken"></span></p>
             <p><strong>Time Completed:</strong> <span id="time-completed"></span></p>
+
+            <!-- Drive Summary Section -->
+            <div id="drive-summary-container" class="drive-summary" style="margin-top: 20px;">
+                <h3>Drive Summary</h3>
+                <table id="drive-summary-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid #ddd; padding: 8px;">Drive</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">Number of Duplicate Files</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">Total Duplicate Size</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Drive summary rows will be dynamically added here -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
+
