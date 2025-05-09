@@ -122,6 +122,7 @@ button, .btn {
     padding: 0.5rem;
     border-radius: 5px;
     max-width: fit-content;
+    margin-bottom: 0px !important;
 }
 
     .form-check label {
@@ -230,3 +231,53 @@ button, .btn {
     .btn-secondary:hover {
         background-color: #d32f2f; /* Darker red on hover */
     }
+
+
+/* Style for the keep strategy list */
+#keep-strategy-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+    #keep-strategy-list .list-group-item {
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 5px;
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+        transition: background-color 0.2s ease;
+    }
+
+        #keep-strategy-list .list-group-item:active {
+            cursor: grabbing;
+            background-color: #e9ecef;
+        }
+
+        #keep-strategy-list .list-group-item:hover {
+            background-color: #e2e6ea;
+        }
+
+.drive-columns {
+    display: flex;
+    gap: 1rem; /* Add spacing between columns */
+    margin-bottom: 0px !important;
+    border: solid black 1px;
+    border-radius: 5px;
+    padding: 10px;
+    background: lightblue;
+}
+
+.drive-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* Add spacing between items in a column */
+    margin-bottom: 0px !important;
+}

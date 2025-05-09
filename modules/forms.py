@@ -1,40 +1,50 @@
 from flask_wtf import FlaskForm
-from wtforms import SelectField, IntegerField, StringField, SubmitField, SelectMultipleField
+from wtforms import SelectField, StringField, SubmitField, HiddenField, SelectMultipleField
 from wtforms.validators import DataRequired, Optional
-from wtforms.widgets import ListWidget, CheckboxInput
 
 class ScanForm(FlaskForm):
+    csrf_token = HiddenField()
+
     source_choice = SelectField(
-        "Source Choice",
+        "Drive Source",
         choices=[
-            ("1", "Array only"),
-            ("2", "Pool only"),
-            ("3", "Both Array and Pool"),
+            ("1", "Array Only"),
+            ("2", "Pools Only"),
+            ("3", "Array + Pools"),
         ],
         validators=[DataRequired()],
     )
-    drives = SelectMultipleField(
-        "Select Drives",
-        choices=[],  # Choices will be populated dynamically
-        validators=[Optional()],
-        coerce=str,
-        widget=ListWidget(prefix_label=False),  # Render as a list
-        option_widget=CheckboxInput(),         # Render each option as a checkbox
-    )
-    min_size = IntegerField(
-        "Minimum File Size (bytes)", validators=[Optional()]
-    )
-    ext_filter = StringField(
-        "File Extensions (comma-separated)", validators=[Optional()]
-    )
-    keep_strategy = SelectField(
-        "Keep Strategy",
-        choices=[
-            ("newest", "Newest"),
-            ("oldest", "Oldest"),
-            ("largest", "Largest"),
-            ("smallest", "Smallest"),
-        ],
+
+    drives = SelectMultipleField("Drives", choices=[], coerce=str, validators=[DataRequired()])
+    min_size = StringField("Minimum File Size (MB)", validators=[Optional()])
+    ext_filter = StringField("Extension Filter (e.g. .mkv,.mp4)", validators=[Optional()])
+
+    strategy_choices = [
+        ("newest", "Newest File"),
+        ("oldest", "Oldest File"),
+        ("largest", "Largest File"),
+        ("smallest", "Smallest File"),
+        ("most_space", "Drive with Most Free Space"),
+        ("least_space", "Drive with Least Free Space"),
+    ]
+
+    keep_primary = SelectField(
+        "Primary Keep Strategy",
+        choices=strategy_choices,
+        default="newest",  # Default to "newest"
         validators=[DataRequired()],
     )
+    keep_tiebreaker1 = SelectField(
+        "Secondary Preference",
+        choices=strategy_choices,
+        default="largest",  # Default to "Largest File"
+        validators=[DataRequired()],
+    )
+    keep_tiebreaker2 = SelectField(
+        "Tertiary Preference",
+        choices=strategy_choices,
+        default="least_space",  # Default to "Drive with Least Free Space"
+        validators=[DataRequired()],
+    )
+
     submit = SubmitField("Start Scan")

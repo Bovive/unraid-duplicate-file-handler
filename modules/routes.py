@@ -3,6 +3,7 @@ from modules.scan import scan_for_duplicates, get_array_drives, get_pool_drives,
 from modules.forms import ScanForm
 from config import APP_NAME, APP_VERSION
 from threading import Thread, Event, Lock
+from werkzeug.datastructures import MultiDict
 
 # Create a Blueprint for routes
 routes = Blueprint("routes", __name__)
@@ -71,20 +72,17 @@ def get_drives(source_choice):
     return {"drives": available_drives.get(source_choice, [])}
 
 @routes.route("/start_scan", methods=["POST"])
-@routes.route("/start_scan", methods=["POST"])
 def start_scan():
     global scan_summary_data, is_scanning
+
     with is_scanning_lock:
         if is_scanning:
-            print("DEBUG: Scan already in progress.")
             return jsonify({"error": "A scan is already in progress. Please wait for it to complete."}), 400
-
-        is_scanning = True  # Set the flag to indicate a scan is in progress
-        print("DEBUG: Scan started. is_scanning set to True.")
+        is_scanning = True
 
     form = ScanForm(request.form)
 
-    # Dynamically populate the drives choices
+    # Dynamically populate the drives choices based on source_choice
     source_choice = form.source_choice.data or "1"
     available_drives = {
         "1": get_array_drives(),
@@ -96,13 +94,18 @@ def start_scan():
     if form.validate():
         selected_disks = form.drives.data
         min_size = int(form.min_size.data or 0)
-        ext_filter = [ext.strip() for ext in form.ext_filter.data.split(",") if ext.strip()]
-        keep_strategy = form.keep_strategy.data
+        ext_filter = [ext.strip() for ext in (form.ext_filter.data or "").split(",") if ext.strip()]
+        keep_strategy = [
+            form.keep_primary.data,
+            form.keep_tiebreaker1.data,
+            form.keep_tiebreaker2.data,
+        ]
+        keep_strategy = [s for s in keep_strategy if s]  # Remove blanks
 
         app = current_app._get_current_object()
 
         # Reset scan state
-        scan_complete_event.clear()  # Clear the event before starting a new scan
+        scan_complete_event.clear()
         with scan_summary_lock:
             scan_summary_data = None
         with SCAN_PROGRESS.get_lock():
@@ -118,24 +121,20 @@ def start_scan():
                     with scan_summary_lock:
                         scan_summary_data = result
                     scan_complete_event.set()
-                    print("DEBUG: Scan completed successfully.")
                 else:
-                    print("DEBUG: Scan was canceled. Summary not set.")
-                    scan_complete_event.set()  # 🔥 So the frontend knows it’s over
+                    scan_complete_event.set()
             except Exception as e:
-                print(f"DEBUG: Exception during scan: {e}")
+                print(f"Exception during scan: {e}")
             finally:
                 with is_scanning_lock:
-                    is_scanning = False  # Ensure the flag is reset even if an exception occurs
-                    print("DEBUG: is_scanning reset to False.")
+                    is_scanning = False
 
         thread = Thread(target=run_scan, daemon=True)
         thread.start()
         return "", 200
     else:
         with is_scanning_lock:
-            is_scanning = False  # Reset the flag if form validation fails
-            print("DEBUG: Form validation failed. is_scanning reset to False.")
+            is_scanning = False
         return jsonify({"error": "Invalid form submission", "details": form.errors}), 400
 
 @routes.route("/scan-summary", methods=["GET"])

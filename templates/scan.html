@@ -12,21 +12,40 @@
     function resetScanUI() {
         const progressBarInner = document.getElementById("progress-bar-inner");
         const progressText = document.getElementById("progress-text");
+
+        if (!progressBarInner || !progressText) {
+            console.error("Error: Progress bar elements are missing from the DOM.");
+            return;
+        }
+
         progressBarInner.style.width = "0%";
         progressText.textContent = "0% Complete";
 
         const summaryContainer = document.getElementById("scan-summary");
-        summaryContainer.style.display = "none";
+        if (summaryContainer) {
+            summaryContainer.style.display = "none";
+        }
 
-        document.getElementById("total-duplicates").textContent = "";
-        document.getElementById("total-size").textContent = "";
-        document.getElementById("time-taken").textContent = "";
-        document.getElementById("time-completed").textContent = "";
+        const totalDuplicates = document.getElementById("total-duplicates");
+        const totalSize = document.getElementById("total-size");
+        const timeTaken = document.getElementById("time-taken");
+        const timeCompleted = document.getElementById("time-completed");
 
-        const driveSummaryTable = document.getElementById("drive-summary-table").querySelector("tbody");
-        driveSummaryTable.innerHTML = "";
+        if (totalDuplicates) totalDuplicates.textContent = "";
+        if (totalSize) totalSize.textContent = "";
+        if (timeTaken) timeTaken.textContent = "";
+        if (timeCompleted) timeCompleted.textContent = "";
 
-        document.getElementById("cancel-button").style.display = "none";
+        const driveSummaryTable = document.getElementById("drive-summary-table");
+        if (driveSummaryTable) {
+            const tbody = driveSummaryTable.querySelector("tbody");
+            if (tbody) tbody.innerHTML = "";
+        }
+
+        const cancelButton = document.getElementById("cancel-button");
+        if (cancelButton) {
+            cancelButton.style.display = "none";
+        }
     }
 
     function formatNumberWithCommas(number) {
@@ -46,7 +65,6 @@
     }
 
     function waitForSummary() {
-        // Only stop if explicitly canceled
         if (cancelRequested) {
             console.log("⏹️ Polling stopped: scan was canceled.");
             return;
@@ -55,10 +73,10 @@
         fetch("/scan-summary")
             .then(res => {
                 if (res.status === 202) {
-                document.getElementById("progress-text").textContent = "Finalizing summary...";
-                setTimeout(waitForSummary, 500);
-                return null;  // ❗ This only works *inside a .then() callback function*
-            }
+                    document.getElementById("progress-text").textContent = "Finalizing summary...";
+                    setTimeout(waitForSummary, 500);
+                    return null;
+                }
                 return res.json();
             })
             .then(summary => {
@@ -88,28 +106,43 @@
     function updateDrives() {
         const sourceChoice = document.getElementById("source_choice").value;
         const drivesField = document.getElementById("drives");
-        drivesField.innerHTML = "";
+        drivesField.innerHTML = ""; // Clear existing content
+
         fetch(`/get_drives/${sourceChoice}`)
             .then(response => response.json())
             .then(data => {
-                data.drives.forEach(drive => {
-                    const checkbox = document.createElement("input");
-                    checkbox.type = "checkbox";
-                    checkbox.name = "drives";
-                    checkbox.value = drive;
-                    checkbox.id = `drive-${drive}`;
+                const drives = data.drives;
+                const columns = Math.ceil(drives.length / 4); // Calculate the number of columns
+                const columnContainer = document.createElement("div");
+                columnContainer.className = "drive-columns";
 
-                    const label = document.createElement("label");
-                    label.htmlFor = `drive-${drive}`;
-                    label.textContent = drive;
+                for (let i = 0; i < columns; i++) {
+                    const column = document.createElement("div");
+                    column.className = "drive-column";
 
-                    const container = document.createElement("div");
-                    container.className = "form-check";
-                    container.appendChild(label);
-                    container.appendChild(checkbox);
+                    drives.slice(i * 4, (i + 1) * 4).forEach(drive => {
+                        const checkbox = document.createElement("input");
+                        checkbox.type = "checkbox";
+                        checkbox.name = "drives";
+                        checkbox.value = drive;
+                        checkbox.id = `drive-${drive}`;
 
-                    drivesField.appendChild(container);
-                });
+                        const label = document.createElement("label");
+                        label.htmlFor = `drive-${drive}`;
+                        label.textContent = drive;
+
+                        const container = document.createElement("div");
+                        container.className = "form-check";
+                        container.appendChild(label);
+                        container.appendChild(checkbox);
+
+                        column.appendChild(container);
+                    });
+
+                    columnContainer.appendChild(column);
+                }
+
+                drivesField.appendChild(columnContainer);
             })
             .catch(error => console.error("Error fetching drives:", error));
     }
@@ -122,7 +155,6 @@
                     console.log("🚫 Scan canceled.");
                     resetScanState();
                     resetScanUI();
-                    // 👇 Hide the progress bar completely
                     document.getElementById("progress-container").style.display = "none";
                 } else {
                     console.error("Failed to cancel scan.");
@@ -150,6 +182,11 @@
         progressContainer.style.display = "block";
 
         const formData = new FormData(form);
+
+        // Log the form data being sent
+        for (const [key, value] of formData.entries()) {
+            console.log(`${key}: ${value}`);
+        }
 
         fetch("/start_scan", {
             method: "POST",
@@ -202,17 +239,14 @@
         const driveSummaryTable = document.getElementById("drive-summary-table").querySelector("tbody");
         driveSummaryTable.innerHTML = "";
 
-        // Remove any existing no-duplicates message from prior scans
         const existingMessage = document.getElementById("no-duplicates-message");
         if (existingMessage) {
             existingMessage.remove();
         }
 
         if (!summary.drive_summary || Object.keys(summary.drive_summary).length === 0) {
-            // Hide the table
             driveSummaryContainer.style.display = "none";
 
-            // Show a standalone message
             const message = document.createElement("p");
             message.id = "no-duplicates-message";
             message.style.marginTop = "1rem";
@@ -221,7 +255,6 @@
             summaryContainer.appendChild(message);
             return;
         } else {
-            // Show the table again if there are duplicates
             driveSummaryContainer.style.display = "block";
         }
 
@@ -260,9 +293,84 @@
             }
         });
 
-        document.getElementById("cancel-button").addEventListener("click", cancelScan);
-    });
+    const pairings = {
+        "smallest": "largest",
+        "largest": "smallest",
+        "newest": "oldest",
+        "oldest": "newest",
+        "most_space": "least_space",
+        "least_space": "most_space"
+    };
 
+    const initialOptions = {
+        keep_primary: Array.from(document.querySelectorAll("#keep_primary option")),
+        keep_tiebreaker1: Array.from(document.querySelectorAll("#keep_tiebreaker1 option")),
+        keep_tiebreaker2: Array.from(document.querySelectorAll("#keep_tiebreaker2 option"))
+    };
+
+    // Set default values on page load
+    document.getElementById("keep_primary").value = "newest";
+    document.getElementById("keep_tiebreaker1").value = "largest";
+    document.getElementById("keep_tiebreaker2").value = "least_space";
+
+    function updateDropdowns() {
+        const primaryValue = document.getElementById("keep_primary").value;
+        const tiebreaker1 = document.getElementById("keep_tiebreaker1");
+        const tiebreaker2 = document.getElementById("keep_tiebreaker2");
+
+        // Reset options
+        resetDropdown(tiebreaker1, initialOptions.keep_tiebreaker1);
+        resetDropdown(tiebreaker2, initialOptions.keep_tiebreaker2);
+
+        // Reset tiebreakers to their defaults if primary strategy changes
+        if (this.id === "keep_primary") {
+            tiebreaker1.value = "largest"; // Reset Tiebreaker 1 to "Largest File"
+            tiebreaker2.value = "least_space"; // Reset Tiebreaker 2 to "Drive with Least Free Space"
+        }
+
+        // Remove paired options based on primary selection
+        if (primaryValue) {
+            const pairedOption = pairings[primaryValue];
+            removeOption(tiebreaker1, primaryValue);
+            removeOption(tiebreaker1, pairedOption);
+            removeOption(tiebreaker2, primaryValue);
+            removeOption(tiebreaker2, pairedOption);
+        }
+
+        // Remove paired options based on Tiebreaker 1 selection
+        const tiebreaker1Value = tiebreaker1.value;
+        if (tiebreaker1Value) {
+            const pairedOption = pairings[tiebreaker1Value];
+            removeOption(tiebreaker2, tiebreaker1Value);
+            removeOption(tiebreaker2, pairedOption);
+        }
+    }
+
+    function resetDropdown(dropdown, options) {
+        const currentValue = dropdown.value; // Store the current value
+        dropdown.innerHTML = ""; // Clear existing options
+        options.forEach(option => dropdown.appendChild(option.cloneNode(true)));
+
+        // Restore the current value if it exists in the new options
+        const restoredOption = dropdown.querySelector(`option[value="${currentValue}"]`);
+        if (restoredOption) {
+            dropdown.value = currentValue;
+        } else {
+            dropdown.value = options[0].value; // Default to the first valid option
+        }
+    }
+
+    function removeOption(dropdown, value) {
+        const option = dropdown.querySelector(`option[value="${value}"]`);
+        if (option) {
+            option.remove();
+        }
+    }
+
+    document.getElementById("keep_primary").addEventListener("change", updateDropdowns);
+    document.getElementById("keep_tiebreaker1").addEventListener("change", updateDropdowns);
+});
+   
 </script>
 {% endblock %}
 
@@ -270,7 +378,6 @@
 <a href="/" class="back-button">Back to Main Menu</a>
 <h1>Unraid Duplicate File Handler</h1>
 <div class="scan-container">
-    <!-- Left Column: Form and Progress Bar -->
     <div class="left-column">
         <form method="post">
             {{ form.hidden_tag() }}
@@ -284,19 +391,27 @@
             </div>
             <div>
                 <label for="min_size">{{ form.min_size.label.text }}</label>
-                {{ form.min_size(class="form-control", id="min_size") }}
+                {{ form.min_size(class="form-control", id="min_size", value="1") }}
             </div>
             <div>
                 <label for="ext_filter">{{ form.ext_filter.label.text }}</label>
-                {{ form.ext_filter(class="form-control", id="ext_filter") }}
+                {{ form.ext_filter(class="form-control", id="ext_filter", value="*") }}
             </div>
             <div>
-                <label for="keep_strategy">{{ form.keep_strategy.label.text }}</label>
-                {{ form.keep_strategy(class="form-control", id="keep_strategy") }}
+                <label for="keep_primary">{{ form.keep_primary.label.text }}</label>
+                {{ form.keep_primary(class="form-control", id="keep_primary") }}
             </div>
             <div>
-                {{ form.submit(class="btn btn-primary", type="submit") }}
-                <button id="cancel-button" class="btn btn-secondary" style="display: none;">Cancel</button>
+                <label for="keep_tiebreaker1">{{ form.keep_tiebreaker1.label.text }}</label>
+                {{ form.keep_tiebreaker1(class="form-control", id="keep_tiebreaker1") }}
+            </div>
+            <div>
+                <label for="keep_tiebreaker2">{{ form.keep_tiebreaker2.label.text }}</label>
+                {{ form.keep_tiebreaker2(class="form-control", id="keep_tiebreaker2") }}
+            </div>
+            <div>
+                <button type="submit" class="btn btn-primary">Start Scan</button>
+                <button id="cancel-button" class="btn btn-secondary" style="display: none;" onclick="cancelScan()">Cancel</button>
             </div>
         </form>
 
@@ -308,7 +423,6 @@
         </div>
     </div>
 
-    <!-- Right Column: Summary -->
     <div class="right-column">
         <div id="scan-summary" class="scan-summary" style="display: none;">
             <h2>Scan Summary</h2>
@@ -317,7 +431,6 @@
             <p><strong>Time Taken:</strong> <span id="time-taken"></span></p>
             <p><strong>Time Completed:</strong> <span id="time-completed"></span></p>
 
-            <!-- Drive Summary Section -->
             <div id="drive-summary-container" class="drive-summary" style="margin-top: 20px;">
                 <h3>Drive Summary</h3>
                 <table id="drive-summary-table" style="width: 100%; border-collapse: collapse;">
@@ -329,7 +442,6 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Drive summary rows will be dynamically added here -->
                     </tbody>
                 </table>
             </div>
@@ -337,4 +449,3 @@
     </div>
 </div>
 {% endblock %}
-

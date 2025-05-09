@@ -7,6 +7,7 @@ from tqdm import tqdm
 from flask import current_app
 from multiprocessing import Value
 from time import time
+import shutil  # Added for disk space calculations
 
 # Shared variables
 SCAN_PROGRESS = Value("i", 0)
@@ -47,7 +48,7 @@ def format_size(size_in_bytes):
         unit_index += 1
     return f"{size:,.2f} {units[unit_index]}"
 
-def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_strategy="newest", app=None):
+def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_strategy_order=None, app=None):
     session_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     global is_canceled
     is_canceled = False
@@ -83,6 +84,31 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
     disks_with_duplicates = set()
     drive_summary = {}
 
+    def get_drive_free_space(path):
+        """Helper function to get the available space on a drive."""
+        try:
+            total, used, free = shutil.disk_usage(path)
+            return free
+        except Exception as e:
+            print(f"Error getting free space for {path}: {e}")
+            return 0
+
+    def sort_by_strategy(paths, strategy):
+        """Sort paths based on a single strategy."""
+        if strategy == "newest":
+            return sorted(paths, key=lambda p: os.path.getmtime(p) if os.path.exists(p) else 0, reverse=True)
+        elif strategy == "oldest":
+            return sorted(paths, key=lambda p: os.path.getmtime(p) if os.path.exists(p) else float("inf"))
+        elif strategy == "largest":
+            return sorted(paths, key=lambda p: os.path.getsize(p) if os.path.exists(p) else 0, reverse=True)
+        elif strategy == "smallest":
+            return sorted(paths, key=lambda p: os.path.getsize(p) if os.path.exists(p) else float("inf"))
+        elif strategy == "least_space":
+            return sorted(paths, key=lambda p: get_drive_free_space(os.path.dirname(p)), reverse=False)
+        elif strategy == "most_space":
+            return sorted(paths, key=lambda p: get_drive_free_space(os.path.dirname(p)), reverse=True)
+        return paths
+
     with tqdm(total=total_files, desc="Scanning files", unit="file") as pbar:
         for disk in selected_disks:
             for root, _, files in os.walk(disk):
@@ -94,11 +120,17 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
                         print("Scan canceled.")
                         return None
                     file_path = os.path.join(root, file)
+
+                    if not os.path.isfile(file_path):
+                        print(f"Skipping non-file: {file_path}")
+                        continue
+
                     try:
                         if min_size and os.path.getsize(file_path) < min_size:
                             continue
-                        if ext_filter and not any(file.endswith(ext) for ext in ext_filter):
-                            continue
+                        if ext_filter and "*" not in ext_filter:
+                            if not any(file.lower().endswith(ext.lower()) for ext in ext_filter):
+                                continue
                         rel_path = os.path.relpath(file_path, disk)
                         file_index.setdefault(rel_path, []).append(file_path)
                     except Exception as e:
@@ -121,14 +153,9 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
         for rel_path, paths in file_index.items():
             if len(paths) > 1:
                 try:
-                    if keep_strategy == "newest":
-                        paths.sort(key=lambda p: os.path.getmtime(p) if os.path.exists(p) else 0, reverse=True)
-                    elif keep_strategy == "oldest":
-                        paths.sort(key=lambda p: os.path.getmtime(p) if os.path.exists(p) else float("inf"))
-                    elif keep_strategy == "largest":
-                        paths.sort(key=lambda p: os.path.getsize(p) if os.path.exists(p) else 0, reverse=True)
-                    elif keep_strategy == "smallest":
-                        paths.sort(key=lambda p: os.path.getsize(p) if os.path.exists(p) else float("inf"))
+                    # Apply strategies in the specified order
+                    for strategy in keep_strategy_order:
+                        paths = sort_by_strategy(paths, strategy)
                 except Exception as e:
                     print(f"Error sorting paths for {rel_path}: {e}")
                     continue
