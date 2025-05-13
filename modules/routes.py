@@ -1,10 +1,11 @@
 ﻿from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app, jsonify, send_from_directory
 from modules.scan import scan_for_duplicates, get_array_drives, get_pool_drives, SCAN_PROGRESS, is_canceled
+from modules.cleanup import write_cleanup_results, delete_duplicates_logic, move_duplicates_logic
 from modules.forms import ScanForm
 from config import APP_NAME, APP_VERSION
 from threading import Thread, Event, Lock
 from werkzeug.datastructures import MultiDict
-import os, glob, json
+import os, glob, json, csv, shutil
 
 # Create a Blueprint for routes
 routes = Blueprint("routes", __name__)
@@ -180,3 +181,30 @@ def list_scan_summaries():
         except Exception as e:
             print(f"Error reading summary {json_path}: {e}")
     return jsonify({"summaries": summaries})
+
+@routes.route("/delete_duplicates/<csv_file>", methods=["POST"])
+def delete_duplicates(csv_file):
+    result, status = delete_duplicates_logic(csv_file)
+    return jsonify(result), status
+
+@routes.route("/move_duplicates/<csv_file>", methods=["POST"])
+def move_duplicates(csv_file):
+    data = request.get_json()
+    destination = data.get("destination") if data else None
+    result, status = move_duplicates_logic(csv_file, destination)
+    return jsonify(result), status
+
+@routes.route("/list_dirs", methods=["POST"])
+def list_dirs():
+    data = request.get_json()
+    base = data.get("base", "/mnt")
+    # Security: Only allow navigation under /mnt
+    base = os.path.abspath(base)
+    if not base.startswith("/mnt"):
+        return jsonify({"error": "Invalid base directory."}), 400
+    try:
+        dirs = [d for d in os.listdir(base) if os.path.isdir(os.path.join(base, d))]
+        dirs.sort()
+        return jsonify({"dirs": dirs, "base": base})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

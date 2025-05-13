@@ -222,6 +222,7 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
         "drive_summary": drive_summary,
         "time_taken": float(time_taken),
         "time_completed": datetime.now().strftime("%m/%d/%Y %I:%M:%S %p"),
+        "keep_strategy": keep_strategy_order,
     }
 
     # Write summary JSON file

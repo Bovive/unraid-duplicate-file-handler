@@ -31,6 +31,9 @@ button {
     border-radius: 5px;
     font-size: 1rem;
     cursor: pointer;
+    margin-bottom: 0.5rem !important;
+    margin-top: 0rem !important;
+    width: 100%;
 }
 
     button:hover {
@@ -67,8 +70,6 @@ button {
     display: flex;
     justify-content: space-between;
     margin-top: 2rem;
-    margin-right: 15%;
-    margin-left: 15%;
 }
 
 /* Left column: Form and progress bar */
@@ -98,7 +99,7 @@ button {
         border: 1px solid #ddd;
         padding: 8px;
         text-align: left;
-        vertical-align: top;
+        vertical-align: middle;
     }
 
     #scans-table th {
@@ -170,6 +171,19 @@ button {
             content: "";
         }
 
+    #scans-table th:nth-child(2),
+    #scans-table td:nth-child(2),
+    #scans-table th:nth-child(3),
+    #scans-table td:nth-child(3),
+    #scans-table th:nth-child(5),
+    #scans-table td:nth-child(5),
+    #scans-table th:nth-child(6),
+    #scans-table td:nth-child(6),
+    #scans-table th:nth-child(7),
+    #scans-table td:nth-child(7) {
+        text-align: center;
+    }
+
 .header {
     width: auto !important;
     text-align: center !important;
@@ -179,4 +193,87 @@ button {
 
     .header:after {
         position: unset !important;
+    }
+
+.btn-danger {
+    background-color: #e53935;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+
+    .btn-danger:hover {
+        background-color: #b71c1c;
+    }
+
+.btn-warning {
+    background-color: #ff9800;
+    color: #212121;
+    border: none;
+    border-radius: 5px;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+
+    .btn-warning:hover {
+        background-color: #f57c00;
+    }
+
+.drive-summary-item {
+    margin-bottom: 0.5em;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.4);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: #fff;
+    margin: 10% auto;
+    padding: 2em;
+    border-radius: 8px;
+    width: 400px;
+    position: relative;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.close {
+    position: absolute;
+    right: 1em;
+    top: 1em;
+    font-size: 1.5em;
+    cursor: pointer;
+}
+
+#dir-list li {
+    padding: 0.3em 0;
+    cursor: pointer;
+}
+
+    #dir-list li:hover {
+        background: #f0f0f0;
+    }
+
+    #dir-list li.selected {
+        background: #ffe0b2;
+        font-weight: bold;
     }

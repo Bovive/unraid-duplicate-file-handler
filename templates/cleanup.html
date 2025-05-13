@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Cleanup Duplicates{% endblock %}
 
@@ -19,7 +19,9 @@
                     <th data-sort="int" class="header">Total Duplicates</th>
                     <th data-sort="str" class="header">Total Size</th>
                     <th class="not-sortable header">Files/Size Per Drive</th>
+                    <th class="not-sortable header">Keep Strategy</th>
                     <th class="not-sortable header">Download</th>
+                    <th class="not-sortable header">Cleanup Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -29,17 +31,32 @@
     </div>
     <div class="right-column">
         <div class="container">
-            <p>Select a scan to view or clean up duplicates.</p>
+            <p>Placeholder for cleanup summary.</p>
         </div>
     </div>
 </div>
+
+<div id="move-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="close" id="move-modal-close">&times;</span>
+        <h2>Select Destination Directory</h2>
+        <div id="dir-path" style="font-weight:bold; margin-bottom:0.5em;"></div>
+        <ul id="dir-list" style="list-style:none; padding-left:0;"></ul>
+        <button id="select-dest-btn" class="btn btn-warning" style="margin-top:1em;" disabled>Move Here</button>
+    </div>
+</div>
+
 <script>
+function formatNumberWithCommas(number) {
+    return number.toLocaleString();
+}
+
 function formatDriveSummary(drive_summary) {
     if (!drive_summary) return "";
     return Object.entries(drive_summary)
         .map(([drive, data]) =>
-            `${drive}: ${data.file_count} files (${data.total_size})`
-        ).join("<br>");
+            `<div class="drive-summary-item">${drive}: ${formatNumberWithCommas(data.file_count)} files (${data.total_size})</div>`
+        ).join("");
 }
 
 function parseDate(dateStr) {
@@ -74,26 +91,66 @@ document.addEventListener("DOMContentLoaded", function() {
             if (data.summaries.length === 0) {
                 const row = document.createElement("tr");
                 const cell = document.createElement("td");
-                cell.colSpan = 5;
+                cell.colSpan = 6;
                 cell.textContent = "No scans with duplicates found.";
                 row.appendChild(cell);
                 tbody.appendChild(row);
             } else {
                 data.summaries.forEach(summary => {
+                    const csvFile = summary.csv_file ? summary.csv_file.split('/').pop() : '';
                     const row = document.createElement("tr");
                     row.innerHTML = `
                         <td>${summary.time_completed || "N/A"}</td>
                         <td>${summary.total_duplicates}</td>
                         <td>${summary.total_duplicate_size}</td>
                         <td>${formatDriveSummary(summary.drive_summary)}</td>
+                        <td>${
+                            Array.isArray(summary.keep_strategy)
+                                ? summary.keep_strategy
+                                    .map(s => s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))
+                                    .join(" → ")
+                                : (summary.keep_strategy || "")
+                        }</td>
                         <td>
-                            ${summary.csv_file ? `<a href="/download_csv/${summary.csv_file.split('/').pop()}" class="btn btn-success" download>CSV</a>` : ""}
+                            ${csvFile ? `<a href="/download_csv/${csvFile}" class="btn btn-success" download>CSV</a>` : ""}
+                        </td>
+                        <td>
+                            <button class="btn btn-warning move-btn" data-csv="${csvFile}">Move</button>
+                            <button class="btn btn-danger delete-btn" data-csv="${csvFile}">Delete</button>
                         </td>
                     `;
                     tbody.appendChild(row);
                 });
                 // Default sort by date (newest first)
                 sortTable(document.getElementById("scans-table"), 0, "date", false);
+
+                // Attach event listeners for Delete and Move buttons
+                tbody.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const csvFile = btn.getAttribute('data-csv');
+                        if (!csvFile) return;
+                        const confirmation = prompt('Type DELETE to confirm deletion of all duplicate files not marked as Keep: yes.');
+                        if (confirmation === 'DELETE') {
+                            fetch(`/delete_duplicates/${csvFile}`, { method: 'POST' })
+                                .then(res => res.json())
+                                .then(data => {
+                                    alert(data.message || 'Deletion complete.');
+                                    location.reload();
+                                })
+                                .catch(() => alert('Error deleting duplicates.'));
+                        } else if (confirmation !== null) {
+                            alert('You must type DELETE in all caps to confirm.');
+                        }
+                    });
+                });
+
+                tbody.querySelectorAll('.move-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const csvFile = btn.getAttribute('data-csv');
+                        if (!csvFile) return;
+                        showMoveModal(csvFile);
+                    });
+                });
             }
         });
 
@@ -113,5 +170,95 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 });
+
+let moveModal = null, dirList = null, dirPath = null, selectDestBtn = null, currentBase = "/mnt", selectedDir = null, moveCsvFile = null;
+
+function showMoveModal(csvFile) {
+    moveModal = document.getElementById("move-modal");
+    dirList = document.getElementById("dir-list");
+    dirPath = document.getElementById("dir-path");
+    selectDestBtn = document.getElementById("select-dest-btn");
+    moveCsvFile = csvFile;
+    selectedDir = null;
+    selectDestBtn.disabled = true;
+    fetchDirs("/mnt");
+    moveModal.style.display = "flex";
+}
+
+function fetchDirs(base) {
+    fetch("/list_dirs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            dirList.innerHTML = `<li style="color:red;">${data.error}</li>`;
+            selectDestBtn.disabled = true;
+            return;
+        }
+        currentBase = data.base;
+        dirPath.textContent = currentBase;
+        dirList.innerHTML = "";
+        if (currentBase !== "/mnt") {
+            const upLi = document.createElement("li");
+            upLi.textContent = ".. (up one level)";
+            upLi.onclick = () => fetchDirs(currentBase.substring(0, currentBase.lastIndexOf("/")) || "/mnt");
+            dirList.appendChild(upLi);
+        }
+        data.dirs.forEach(d => {
+            const li = document.createElement("li");
+            li.textContent = d;
+            li.onclick = () => {
+                fetchDirs(currentBase + "/" + d);
+            };
+            dirList.appendChild(li);
+        });
+        // Always enable the Move Here button for the current directory
+        selectedDir = currentBase;
+        selectDestBtn.disabled = false;
+    });
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    // ... your existing code ...
+
+    // Move button event
+    document.body.addEventListener('click', function(e) {
+        if (e.target.classList.contains('move-btn')) {
+            const csvFile = e.target.getAttribute('data-csv');
+            showMoveModal(csvFile);
+        }
+    });
+
+    // Modal close
+    document.getElementById("move-modal-close").onclick = function() {
+        document.getElementById("move-modal").style.display = "none";
+    };
+
+    // Move Here button
+    document.getElementById("select-dest-btn").onclick = function() {
+        if (!selectedDir || !moveCsvFile) return;
+        const confirmation = prompt(`Type MOVE to confirm moving duplicate files to:\n${selectedDir}`);
+        if (confirmation === "MOVE") {
+            fetch(`/move_duplicates/${moveCsvFile}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ destination: selectedDir })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message || 'Move complete.');
+                location.reload();
+            })
+            .catch(() => alert('Error moving duplicates.'));
+            document.getElementById("move-modal").style.display = "none";
+        } else if (confirmation !== null) {
+            alert('You must type MOVE in all caps to confirm.');
+        }
+    };
+});
+
 </script>
 {% endblock %}
