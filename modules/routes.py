@@ -1,9 +1,10 @@
-﻿from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app, jsonify
+﻿from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app, jsonify, send_from_directory
 from modules.scan import scan_for_duplicates, get_array_drives, get_pool_drives, SCAN_PROGRESS, is_canceled
 from modules.forms import ScanForm
 from config import APP_NAME, APP_VERSION
 from threading import Thread, Event, Lock
 from werkzeug.datastructures import MultiDict
+import os, glob, json
 
 # Create a Blueprint for routes
 routes = Blueprint("routes", __name__)
@@ -158,3 +159,24 @@ def cancel_scan():
     scan.is_canceled = True
     print("DEBUG: is_canceled set to True from /cancel_scan")
     return jsonify({"message": "Scan canceled successfully."}), 200
+
+@routes.route("/download_csv/<filename>")
+def download_csv(filename):
+    # Adjust the path to match where your CSVs are stored
+    output_dir = os.path.join(current_app.root_path, "static", "output", "scan_results")
+    return send_from_directory(output_dir, filename, as_attachment=True)
+
+@routes.route("/list_scan_summaries")
+def list_scan_summaries():
+    output_dir = os.path.join(current_app.root_path, "static", "output", "scan_results")
+    summaries = []
+    for json_path in sorted(glob.glob(os.path.join(output_dir, "duplicates_*.json")), reverse=True):
+        try:
+            with open(json_path, "r") as f:
+                summary = json.load(f)
+                # Only include if there are duplicates and a CSV file
+                if summary.get("csv_file") and summary.get("total_duplicates") and summary.get("total_duplicates") != "0":
+                    summaries.append(summary)
+        except Exception as e:
+            print(f"Error reading summary {json_path}: {e}")
+    return jsonify({"summaries": summaries})

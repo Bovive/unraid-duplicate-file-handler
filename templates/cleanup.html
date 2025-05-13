@@ -3,53 +3,115 @@
 {% block title %}Cleanup Duplicates{% endblock %}
 
 {% block head %}
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        margin: 2rem;
-        background-color: #f4f4f4;
-        justify-content: center;
-        display: grid;
-    }
-    h1 {
-        color: #333;
-    }
-    .container {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 8px;
-        max-width: 600px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        text-align: center;
-    }
-    button {
-        margin-top: 1.5rem;
-        padding: 0.75rem 1.5rem;
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        font-size: 1rem;
-        cursor: pointer;
-    }
-    button:hover {
-        background-color: #45a049;
-    }
-    .logo {
-        display: block;
-        margin: 0 auto 1rem auto;
-        max-width: 200px;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cleanup.css') }}">
 {% endblock %}
 
 {% block content %}
+<a href="/" class="back-button">Back to Main Menu</a>
 <img src="{{ url_for('static', filename='images/logo-big.png') }}" alt="Unraid Duplicate File Handler Logo" class="logo">
 <h1>Cleanup Duplicates</h1>
-<div class="container">
-    <p>This is a placeholder for the cleanup functionality.</p>
-    <button onclick="window.location.href='/'">Back to Main Menu</button>
+<div class="cleanup-container">
+    <div class="left-column">
+        <table id="scans-table">
+            <thead>
+                <tr>
+                    <th data-sort="date" class="header">Date &#x25B2;</th>
+                    <th data-sort="int" class="header">Total Duplicates</th>
+                    <th data-sort="str" class="header">Total Size</th>
+                    <th class="not-sortable header">Files/Size Per Drive</th>
+                    <th class="not-sortable header">Download</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Populated by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+    <div class="right-column">
+        <div class="container">
+            <p>Select a scan to view or clean up duplicates.</p>
+        </div>
+    </div>
 </div>
+<script>
+function formatDriveSummary(drive_summary) {
+    if (!drive_summary) return "";
+    return Object.entries(drive_summary)
+        .map(([drive, data]) =>
+            `${drive}: ${data.file_count} files (${data.total_size})`
+        ).join("<br>");
+}
+
+function parseDate(dateStr) {
+    // Format: MM/DD/YYYY HH:MM:SS AM/PM
+    if (!dateStr) return 0;
+    return new Date(dateStr);
+}
+
+function sortTable(table, col, type, asc) {
+    const tbody = table.tBodies[0];
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+    rows.sort((a, b) => {
+        let aText = a.children[col].textContent.trim();
+        let bText = b.children[col].textContent.trim();
+        if (type === "int") {
+            return (parseInt(aText.replace(/,/g, "")) - parseInt(bText.replace(/,/g, ""))) * (asc ? 1 : -1);
+        } else if (type === "date") {
+            return (parseDate(aText) - parseDate(bText)) * (asc ? 1 : -1);
+        } else {
+            return aText.localeCompare(bText) * (asc ? 1 : -1);
+        }
+    });
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    fetch("/list_scan_summaries")
+        .then(res => res.json())
+        .then(data => {
+            const tbody = document.querySelector("#scans-table tbody");
+            tbody.innerHTML = "";
+            if (data.summaries.length === 0) {
+                const row = document.createElement("tr");
+                const cell = document.createElement("td");
+                cell.colSpan = 5;
+                cell.textContent = "No scans with duplicates found.";
+                row.appendChild(cell);
+                tbody.appendChild(row);
+            } else {
+                data.summaries.forEach(summary => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                        <td>${summary.time_completed || "N/A"}</td>
+                        <td>${summary.total_duplicates}</td>
+                        <td>${summary.total_duplicate_size}</td>
+                        <td>${formatDriveSummary(summary.drive_summary)}</td>
+                        <td>
+                            ${summary.csv_file ? `<a href="/download_csv/${summary.csv_file.split('/').pop()}" class="btn btn-success" download>CSV</a>` : ""}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                // Default sort by date (newest first)
+                sortTable(document.getElementById("scans-table"), 0, "date", false);
+            }
+        });
+
+    // Only attach sort handlers to sortable columns (not .not-sortable)
+    document.querySelectorAll("#scans-table th:not(.not-sortable)").forEach((th) => {
+        th.addEventListener("click", function() {
+            const type = th.getAttribute("data-sort") || "str";
+            // Find the actual column index
+            const allThs = Array.from(document.querySelectorAll("#scans-table th"));
+            const colIdx = allThs.indexOf(th);
+            // Toggle sort direction
+            let asc = th.classList.toggle("asc");
+            allThs.forEach(other => {
+                if (other !== th) other.classList.remove("asc");
+            });
+            sortTable(document.getElementById("scans-table"), colIdx, type, asc);
+        });
+    });
+});
+</script>
 {% endblock %}
-
-

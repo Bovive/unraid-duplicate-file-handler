@@ -281,6 +281,27 @@
 
             driveSummaryTable.appendChild(row);
         }
+
+        const oldLink = document.getElementById("csv-download-link");
+        if (oldLink) oldLink.remove();
+
+        // Create a new download link if the CSV file is available
+        if (
+            summary.csv_file &&
+            summary.total_duplicates &&
+            summary.total_duplicates !== "0"
+        ) {
+            const csvFilename = summary.csv_file.split('/').pop();
+            const link = document.createElement("a");
+            link.id = "csv-download-link";
+            link.href = `/download_csv/${csvFilename}`;
+            link.className = "btn btn-success";
+            link.textContent = "Download CSV Results";
+            link.style.display = "inline-block";
+            link.style.marginTop = "1rem";
+            link.setAttribute("download", "");
+            summaryContainer.appendChild(link);
+        }
     }
 
     document.addEventListener("DOMContentLoaded", () => {

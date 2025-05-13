@@ -1,5 +1,5 @@
 ﻿# modules/scan.py
-import os
+import os, json, shutil
 from pathlib import Path
 from datetime import datetime
 import csv
@@ -7,7 +7,6 @@ from tqdm import tqdm
 from flask import current_app
 from multiprocessing import Value
 from time import time
-import shutil  # Added for disk space calculations
 
 # Shared variables
 SCAN_PROGRESS = Value("i", 0)
@@ -146,41 +145,49 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
         return None
 
     csv_file = Path(scan_output_dir) / f"duplicates_{session_timestamp}.csv"
-    with open(csv_file, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["Group", "Relative Path", "Full Path", "Modification Time", "Size", "Keep"])
-        group_id = 1
-        for rel_path, paths in file_index.items():
-            if len(paths) > 1:
-                try:
-                    # Apply strategies in the specified order
-                    for strategy in keep_strategy_order:
-                        paths = sort_by_strategy(paths, strategy)
-                except Exception as e:
-                    print(f"Error sorting paths for {rel_path}: {e}")
+    group_id = 1
+    duplicates_found = False
+
+    for rel_path, paths in file_index.items():
+        if len(paths) > 1:
+            if not duplicates_found:
+                # Only open and write the CSV header if we find the first duplicate group
+                f = open(csv_file, "w", newline="")
+                writer = csv.writer(f)
+                writer.writerow(["Group", "Relative Path", "Full Path", "Modification Time", "Size", "Keep"])
+                duplicates_found = True
+            try:
+                # Apply strategies in the specified order
+                for strategy in keep_strategy_order:
+                    paths = sort_by_strategy(paths, strategy)
+            except Exception as e:
+                print(f"Error sorting paths for {rel_path}: {e}")
+                continue
+
+            for path in paths:
+                if not os.path.exists(path):
                     continue
+                try:
+                    parts = os.path.normpath(path).split(os.sep)
+                    drive = parts[2] if len(parts) > 2 else "unknown"
+                    disks_with_duplicates.add(drive)
+                    if path != paths[0]:
+                        drive_summary.setdefault(drive, {"file_count": 0, "total_size": 0})
+                        drive_summary[drive]["file_count"] += 1
+                        drive_summary[drive]["total_size"] += os.path.getsize(path)
+                        total_duplicate_files += 1
+                        total_duplicate_size += os.path.getsize(path)
 
-                for path in paths:
-                    if not os.path.exists(path):
-                        continue
-                    try:
-                        parts = os.path.normpath(path).split(os.sep)
-                        drive = parts[2] if len(parts) > 2 else "unknown"
-                        disks_with_duplicates.add(drive)
-                        if path != paths[0]:
-                            drive_summary.setdefault(drive, {"file_count": 0, "total_size": 0})
-                            drive_summary[drive]["file_count"] += 1
-                            drive_summary[drive]["total_size"] += os.path.getsize(path)
-                            total_duplicate_files += 1
-                            total_duplicate_size += os.path.getsize(path)
+                    mod_time = os.path.getmtime(path)
+                    size = os.path.getsize(path)
+                    keep = "yes" if path == paths[0] else "no"
+                    writer.writerow([group_id, rel_path, path, mod_time, size, keep])
+                except Exception as e:
+                    print(f"Error writing data for {path}: {e}")
+            group_id += 1
 
-                        mod_time = os.path.getmtime(path)
-                        size = os.path.getsize(path)
-                        keep = "yes" if path == paths[0] else "no"
-                        writer.writerow([group_id, rel_path, path, mod_time, size, keep])
-                    except Exception as e:
-                        print(f"Error writing data for {path}: {e}")
-                group_id += 1
+    if duplicates_found:
+        f.close()
 
     if total_duplicate_files == 0:
         print("No duplicate files found. Returning empty summary.")
@@ -205,9 +212,9 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
 
     with SCAN_PROGRESS.get_lock():
         SCAN_PROGRESS.value = 100
-    print("✅ Duplicate detection complete. Results saved to:", csv_file)
+        print("✅ Duplicate detection complete. Results saved to:", csv_file)
 
-    return {
+    summary = {
         "csv_file": str(csv_file),
         "total_duplicates": f"{total_duplicate_files:,}",
         "disks_with_duplicates": list(disks_with_duplicates),
@@ -216,3 +223,14 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
         "time_taken": float(time_taken),
         "time_completed": datetime.now().strftime("%m/%d/%Y %I:%M:%S %p"),
     }
+
+    # Write summary JSON file
+    json_file = Path(scan_output_dir) / f"duplicates_{session_timestamp}.json"
+    try:
+        with open(json_file, "w") as jf:
+            json.dump(summary, jf, indent=2)
+        print("✅ Scan summary JSON saved to:", json_file)
+    except Exception as e:
+        print(f"Error writing JSON summary: {e}")
+
+    return summary

@@ -281,3 +281,20 @@ button, .btn {
     gap: 0.5rem; /* Add spacing between items in a column */
     margin-bottom: 0px !important;
 }
+
+.btn-success {
+    background-color: #388e3c;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-left: 10px;
+    text-decoration: none;
+    display: inline-block;
+}
+
+    .btn-success:hover {
+        background-color: #2e7031;
+    }
