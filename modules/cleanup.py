@@ -1,6 +1,4 @@
-import os
-import csv
-import json
+import os, csv, json, shutil
 from datetime import datetime
 from flask import current_app
 
@@ -178,9 +176,12 @@ def move_duplicates_logic(csv_file, destination):
     if not os.path.isfile(csv_path):
         return {"error": "CSV file not found."}, 404
 
+    scan_root = "/mnt/disk6/storage/"
+
     moved = []
     failed = []
     attempted = []
+    source_dirs = set()
 
     try:
         with open(csv_path, newline="") as f:
@@ -189,16 +190,33 @@ def move_duplicates_logic(csv_file, destination):
                 keep = row.get("Keep", "").strip().lower()
                 file_path = row.get("Full Path", "").strip()
                 if keep != "yes" and file_path:
-                    dest_path = os.path.join(destination, os.path.basename(file_path))
+                    rel_path = os.path.relpath(file_path, scan_root)
+                    dest_path = os.path.join(destination, rel_path)
                     attempted.append({"from": file_path, "to": dest_path})
                     try:
                         if os.path.exists(file_path):
-                            os.rename(file_path, dest_path)
+                            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                            shutil.move(file_path, dest_path)
                             moved.append({"from": file_path, "to": dest_path})
+                            source_dirs.add(os.path.dirname(file_path))
                         else:
                             failed.append(f"File not found: {file_path}")
                     except Exception as e:
                         failed.append(f"{file_path}: {e}")
+        # After moving, try to remove empty source directories and their parents (deepest first)
+        all_dirs = set()
+        for d in source_dirs:
+            while True:
+                if d == scan_root.rstrip(os.sep) or not d.startswith(scan_root):
+                    break
+                all_dirs.add(d)
+                d = os.path.dirname(d)
+        for d in sorted(all_dirs, key=lambda x: -x.count(os.sep)):
+            try:
+                if os.path.isdir(d) and not os.listdir(d):
+                    os.rmdir(d)
+            except Exception:
+                pass  # Ignore errors (e.g., not empty, permission denied)
     except Exception as e:
         return {"error": f"Failed to process CSV: {e}"}, 500
 
