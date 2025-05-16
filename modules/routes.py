@@ -163,9 +163,22 @@ def cancel_scan():
 
 @routes.route("/download_csv/<filename>")
 def download_csv(filename):
-    # Adjust the path to match where your CSVs are stored
-    output_dir = os.path.join(current_app.root_path, "static", "output", "scan_results")
-    return send_from_directory(output_dir, filename, as_attachment=True)
+    # Try cleanup_results first
+    cleanup_dir = os.path.join(current_app.root_path, "static", "output", "cleanup_results")
+    scan_dir = os.path.join(current_app.root_path, "static", "output", "scan_results")
+    # Security: prevent path traversal
+    if "/" in filename or "\\" in filename:
+        return "Invalid filename", 400
+    # Check cleanup_results
+    cleanup_path = os.path.join(cleanup_dir, filename)
+    if os.path.isfile(cleanup_path):
+        return send_from_directory(cleanup_dir, filename, as_attachment=True)
+    # Check scan_results
+    scan_path = os.path.join(scan_dir, filename)
+    if os.path.isfile(scan_path):
+        return send_from_directory(scan_dir, filename, as_attachment=True)
+    # Not found
+    return "File not found", 404
 
 @routes.route("/list_scan_summaries")
 def list_scan_summaries():
@@ -208,3 +221,23 @@ def list_dirs():
         return jsonify({"dirs": dirs, "base": base})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@routes.route("/cleanup_history")
+def cleanup_history():
+    return render_template("cleanup_history.html")
+
+@routes.route("/list_cleanup_history")
+def list_cleanup_history():
+    # Adjust the path to where your cleanup job summaries are stored
+    output_dir = os.path.join(current_app.root_path, "static", "output", "cleanup_results")
+    history = []
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    for json_path in sorted(glob.glob(os.path.join(output_dir, "cleanup_*.json")), reverse=True):
+        try:
+            with open(json_path, "r") as f:
+                summary = json.load(f)
+                history.append(summary)
+        except Exception as e:
+            print(f"Error reading cleanup history {json_path}: {e}")
+    return jsonify({"history": history})

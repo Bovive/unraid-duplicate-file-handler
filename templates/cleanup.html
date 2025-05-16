@@ -30,8 +30,8 @@
         </table>
     </div>
     <div class="right-column">
-        <div class="container">
-            <p>Placeholder for cleanup summary.</p>
+        <div class="container" id="cleanup-summary-container" style="display:none;">
+            <p id="cleanup-summary-placeholder">Placeholder for cleanup summary.</p>
         </div>
     </div>
 </div>
@@ -48,7 +48,7 @@
 
 <script>
 function formatNumberWithCommas(number) {
-    return number.toLocaleString();
+    return number != null ? number.toLocaleString() : "0";
 }
 
 function formatDriveSummary(drive_summary) {
@@ -82,7 +82,58 @@ function sortTable(table, col, type, asc) {
     rows.forEach(row => tbody.appendChild(row));
 }
 
+function renderCleanupSummary(summary) {
+    const container = document.getElementById("cleanup-summary-container");
+    if (!container) return;
+    container.style.display = "block";
+    let html = `<h3>Cleanup Summary</h3>`;
+    if (summary.error) {
+        html += `<div style="color:red;">${summary.error}</div>`;
+    } else {
+        html += `<table class="cleanup-summary-table" style="width:100%;margin-bottom:1em;">`;
+        html += `<tr><th>Action</th><td>${summary.action ? summary.action.charAt(0).toUpperCase() + summary.action.slice(1) : ''}</td></tr>`;
+        html += `<tr><th>Time</th><td>${summary.timestamp || ''}</td></tr>`;
+        html += `<tr><th>Original CSV</th><td>${summary.original_csv || ''}</td></tr>`;
+        html += `<tr><th>Files Attempted</th><td>${formatNumberWithCommas(summary.total_attempted || 0)}</td></tr>`;
+        if (summary.total_deleted !== undefined) {
+            html += `<tr><th>Files Deleted</th><td>${formatNumberWithCommas(summary.total_deleted)}</td></tr>`;
+        }
+        if (summary.total_moved !== undefined) {
+            html += `<tr><th>Files Moved</th><td>${formatNumberWithCommas(summary.total_moved)}</td></tr>`;
+        }
+        html += `<tr><th>Failures</th><td>${formatNumberWithCommas(summary.total_failed || 0)}</td></tr>`;
+        html += `</table>`;
+        if (summary.failed && summary.failed.length > 0) {
+            const maxFailed = 100;
+            const failedToShow = summary.failed.slice(0, maxFailed);
+            html += `<details><summary>Show Failed (${failedToShow.length}${summary.failed.length > maxFailed ? ' of ' + summary.failed.length : ''})</summary><ul style="color:red;">${failedToShow.map(f => `<li>${f}</li>`).join('')}</ul>`;
+            if (summary.failed.length > maxFailed) {
+                html += `<li style="color:gray;">...and ${summary.failed.length - maxFailed} more not shown</li>`;
+            }
+            html += `</details>`;
+        }
+        if (summary.affected && summary.affected.length > 0) {
+            html += `<details><summary>Show Affected</summary><ul>${(Array.isArray(summary.affected) ? summary.affected.map(f => 
+                typeof f === "string" ? `<li>${f}</li>` : `<li>${f.from} &rarr; ${f.to}</li>`
+            ).join('') : '')}</ul></details>`;
+        }
+        if (summary.csv_file) {
+            html += `<br><div><a href="/download_csv/${summary.csv_file}" class="btn btn-success" download>Download Cleanup CSV</a></div>`;
+        }
+    }
+    container.innerHTML = html;
+}
+
+function hideCleanupSummary() {
+    const container = document.getElementById("cleanup-summary-container");
+    if (container) {
+        container.style.display = "none";
+        container.innerHTML = '<p id="cleanup-summary-placeholder">Placeholder for cleanup summary.</p>';
+    }
+}
+
 document.addEventListener("DOMContentLoaded", function() {
+    hideCleanupSummary();
     fetch("/list_scan_summaries")
         .then(res => res.json())
         .then(data => {
@@ -134,8 +185,8 @@ document.addEventListener("DOMContentLoaded", function() {
                             fetch(`/delete_duplicates/${csvFile}`, { method: 'POST' })
                                 .then(res => res.json())
                                 .then(data => {
+                                    renderCleanupSummary(data);
                                     alert(data.message || 'Deletion complete.');
-                                    location.reload();
                                 })
                                 .catch(() => alert('Error deleting duplicates.'));
                         } else if (confirmation !== null) {
@@ -249,8 +300,8 @@ document.addEventListener("DOMContentLoaded", function() {
             })
             .then(res => res.json())
             .then(data => {
+                renderCleanupSummary(data);
                 alert(data.message || 'Move complete.');
-                location.reload();
             })
             .catch(() => alert('Error moving duplicates.'));
             document.getElementById("move-modal").style.display = "none";

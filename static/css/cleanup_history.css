@@ -1,0 +1,222 @@
+﻿body {
+    font-family: Arial, sans-serif;
+    margin: 2rem;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+h1 {
+    color: #444;
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    max-width: 700px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    margin-top: 2rem;
+}
+
+.cleanup-container {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+}
+
+/* Left column: Form and progress bar */
+.left-column {
+    flex: 1;
+    max-width: 50%;
+}
+
+/* Right column: Summary */
+.right-column {
+    flex: 1;
+    max-width: 50%;
+}
+
+#history-table {
+    border-collapse: collapse;
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    max-width: 700px;
+    margin: 0 auto;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    margin-top: 2rem;
+}
+
+    #history-table th, #history-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+        vertical-align: middle;
+    }
+
+    #history-table th {
+        background-color: #f2f2f2;
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+    }
+
+        #history-table th.asc:after {
+            content: " ▲";
+            font-size: 0.9em;
+            position: absolute;
+            right: 8px;
+        }
+
+        #history-table th:not(.asc):after {
+            content: " ▼";
+            font-size: 0.9em;
+            position: absolute;
+            right: 8px;
+        }
+
+    #history-table tr:hover {
+        background-color: #f9f9f9;
+    }
+
+    #history-table th,
+    #history-table td {
+        white-space: normal;
+        padding: 15px;
+    }
+
+        #history-table th:nth-child(1),
+        #history-table td:nth-child(1),
+        #history-table th:nth-child(2),
+        #history-table td:nth-child(2),
+        #history-table th:nth-child(3),
+        #history-table td:nth-child(3) {
+            white-space: nowrap;
+            width: 100%;
+        }
+
+        #history-table th:nth-child(2),
+        #history-table th:nth-child(3),
+        #history-table th:nth-child(4),
+        #history-table th:nth-child(5),
+        #history-table th:nth-child(6){
+            padding-right: 2em;
+        }
+
+        #history-table th:nth-child(4),
+        #history-table td:nth-child(4),
+        #history-table th:nth-child(5),
+        #history-table td:nth-child(5) {
+            width: 100%;
+            white-space: normal;
+            text-align: center;
+        }
+
+        #history-table th.not-sortable {
+            cursor: default;
+        }
+
+            #history-table th.not-sortable:after {
+                content: "";
+            }
+
+        #history-table th:nth-child(2),
+        #history-table td:nth-child(2),
+        #history-table th:nth-child(3),
+        #history-table td:nth-child(3),
+        #history-table th:nth-child(6),
+        #history-table td:nth-child(6),
+        #history-table th:nth-child(7),
+        #history-table td:nth-child(7) {
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        #history-table th.not-sortable {
+            cursor: default;
+        }
+
+            #history-table th.not-sortable:after {
+                content: "";
+            }
+
+
+.header {
+    width: auto !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    min-width: max-content !important;
+}
+
+    .header:after {
+        position: unset !important;
+    }
+
+.back-button {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    padding: 0.75rem 1.5rem;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+    z-index: 10;
+}
+
+    .back-button:hover {
+        background-color: #d32f2f;
+    }
+
+.logo {
+    display: block;
+    margin: 0 auto 1rem auto;
+    max-width: 200px;
+}
+
+.container {
+    margin-top: 1rem;
+}
+
+.btn-success {
+    background-color: #4CAF50;
+    color: white;
+    padding: 0.5em 1em;
+    border: none;
+    border-radius: 4px;
+    text-decoration: none;
+}
+
+    .btn-success:hover {
+        background-color: #45a049;
+    }
+
+.cleanup-summary-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 1em;
+}
+
+    .cleanup-summary-table th,
+    .cleanup-summary-table td {
+        border: 1px solid #ccc;
+        padding: 0.5em 0.75em;
+        text-align: left;
+    }
+
+    .cleanup-summary-table th {
+        background: #f5f5f5;
+        width: 180px;
+    }
+
+#history-table tbody tr:nth-child(even) {
+    background-color: #f7fafc;
+}

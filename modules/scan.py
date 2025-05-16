@@ -33,6 +33,11 @@ def clean_old_csv_files(directory, keep_count=5):
     )
     for old_file in csv_files[keep_count:]:
         try:
+            # Delete the associated JSON file if it exists
+            json_file = old_file.with_suffix('.json')
+            if json_file.exists():
+                json_file.unlink()
+                print(f"Deleted associated JSON file: {json_file}")
             old_file.unlink()
             print(f"Deleted old CSV file: {old_file}")
         except Exception as e:

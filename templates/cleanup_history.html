@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Cleanup History{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cleanup_history.css') }}">
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('routes.index') }}" class="back-button">&larr; Back to Main Menu</a>
+<img src="{{ url_for('static', filename='images/logo-big.png') }}" alt="Unraid Duplicate File Handler Logo" class="logo">
+<h1>Cleanup History</h1>
+<div class="cleanup-container">
+    <div class="left-column">
+        <table id="history-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Action</th>
+                    <th>Files Attempted</th>
+                    <th>Files Deleted</th>
+                    <th>Files Moved</th>
+                    <th>Failures</th>
+                    <th class="not-sortable">Summary</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Populated by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+    <div class="right-column">
+        <div class="container" id="history-summary-container" style="display:none;">
+            <p id="history-summary-placeholder">Select a job to view details.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+function formatNumberWithCommas(number) {
+    return number != null ? number.toLocaleString() : "0";
+}
+
+// Accepts "YYYY-MM-DD_HH-MM-SS" and returns "MM/DD/YYYY HH:MM:SS AM/PM"
+function formatDisplayDate(dateStr) {
+    if (!dateStr) return "N/A";
+    const [datePart, timePart] = dateStr.split('_');
+    if (!datePart || !timePart) return dateStr;
+    const [year, month, day] = datePart.split('-').map(Number);
+    let [hour, minute, second] = timePart.split('-').map(Number);
+    let ampm = "AM";
+    if (hour === 0) {
+        hour = 12;
+    } else if (hour === 12) {
+        ampm = "PM";
+    } else if (hour > 12) {
+        hour -= 12;
+        ampm = "PM";
+    }
+    return (
+        `${month.toString().padStart(2, "0")}/${day.toString().padStart(2, "0")}/${year} ` +
+        `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:${second.toString().padStart(2, "0")} ${ampm}`
+    );
+}
+
+// Accepts "YYYY-MM-DD_HH-MM-SS" and returns a sortable timestamp
+function parseDateString(text) {
+    if (!text) return 0;
+    const [datePart, timePart] = text.split('_');
+    if (!datePart || !timePart) return 0;
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour, minute, second] = timePart.split('-').map(Number);
+    return Date.UTC(year, month - 1, day, hour, minute, second);
+}
+
+function parseCellValue(cell, type) {
+    let text = cell.getAttribute('data-raw') || cell.textContent.trim();
+    if (type === "int") return parseInt(text.replace(/,/g, "")) || 0;
+    if (type === "date") return parseDateString(text);
+    return text.toLowerCase();
+}
+
+function getSortType(idx) {
+    if (idx === 0) return "date"; // Date
+    if ([2,3,4,5].includes(idx)) return "int"; // Numbers
+    return "str";
+}
+
+function renderHistorySummary(summary) {
+    const container = document.getElementById("history-summary-container");
+    if (!container) return;
+    container.style.display = "block";
+    let html = `<h3>Cleanup Summary</h3>`;
+    if (summary.error) {
+        html += `<div style="color:red;">${summary.error}</div>`;
+    } else {
+        html += `<table class="cleanup-summary-table">`;
+        html += `<tr><th>Action</th><td>${summary.action ? summary.action.charAt(0).toUpperCase() + summary.action.slice(1) : ''}</td></tr>`;
+        html += `<tr><th>Time</th><td>${formatDisplayDate(summary.timestamp) || ''}</td></tr>`;
+        html += `<tr><th>Original CSV</th><td>${summary.original_csv || ''}</td></tr>`;
+        html += `<tr><th>Files Attempted</th><td>${formatNumberWithCommas(summary.total_attempted || 0)}</td></tr>`;
+        if (summary.total_deleted !== undefined) {
+            html += `<tr><th>Files Deleted</th><td>${formatNumberWithCommas(summary.total_deleted)}</td></tr>`;
+        }
+        if (summary.total_moved !== undefined) {
+            html += `<tr><th>Files Moved</th><td>${formatNumberWithCommas(summary.total_moved)}</td></tr>`;
+        }
+        html += `<tr><th>Failures</th><td>${formatNumberWithCommas(summary.total_failed || 0)}</td></tr>`;
+        html += `</table>`;
+        if (summary.failed && summary.failed.length > 0) {
+            const maxFailed = 100;
+            const failedToShow = summary.failed.slice(0, maxFailed);
+            html += `<details><summary>Show Failed (${failedToShow.length}${summary.failed.length > maxFailed ? ' of ' + summary.failed.length : ''})</summary><ul style="color:red;">${failedToShow.map(f => `<li>${f}</li>`).join('')}</ul>`;
+            if (summary.failed.length > maxFailed) {
+                html += `<li style="color:gray;">...and ${summary.failed.length - maxFailed} more not shown</li>`;
+            }
+            html += `</details>`;
+        }
+        if (summary.affected && summary.affected.length > 0) {
+            html += `<details><summary>Show Affected</summary><ul>${(Array.isArray(summary.affected) ? summary.affected.map(f => 
+                typeof f === "string" ? `<li>${f}</li>` : `<li>${f.from} &rarr; ${f.to}</li>`
+            ).join('') : '')}</ul></details>`;
+        }
+    }
+    container.innerHTML = html;
+}
+
+function hideHistorySummary() {
+    const container = document.getElementById("history-summary-container");
+    if (container) {
+        container.style.display = "none";
+        container.innerHTML = '<p id="history-summary-placeholder">Select a job to view details.</p>';
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    hideHistorySummary();
+    fetch("/list_cleanup_history")
+        .then(res => res.json())
+        .then(data => {
+            const tbody = document.querySelector("#history-table tbody");
+            tbody.innerHTML = "";
+            if (!data.history || data.history.length === 0) {
+                const row = document.createElement("tr");
+                const cell = document.createElement("td");
+                cell.colSpan = 7;
+                cell.textContent = "No cleanup jobs found.";
+                row.appendChild(cell);
+                tbody.appendChild(row);
+            } else {
+                data.history.forEach((summary, idx) => {
+                    const displayDate = formatDisplayDate(summary.timestamp);
+                    const rawDate = summary.timestamp || "";
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                        <td data-raw="${rawDate}">${displayDate}</td>
+                        <td>${summary.action ? summary.action.charAt(0).toUpperCase() + summary.action.slice(1) : ''}</td>
+                        <td>${formatNumberWithCommas(summary.total_attempted || 0)}</td>
+                        <td>${formatNumberWithCommas(summary.total_deleted || 0)}</td>
+                        <td>${formatNumberWithCommas(summary.total_moved || 0)}</td>
+                        <td>${formatNumberWithCommas(summary.total_failed || 0)}</td>
+                        <td>
+                            <button class="btn btn-success show-summary-btn" type="button">Show</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                // Attach show-summary button handlers
+                tbody.querySelectorAll('.show-summary-btn').forEach((btn, i) => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        renderHistorySummary(data.history[i]);
+                    });
+                });
+            }
+        });
+
+    // Sorting logic for history table
+    document.querySelectorAll("#history-table th:not(.not-sortable)").forEach((th) => {
+        th.addEventListener("click", function() {
+            const table = th.closest("table");
+            const allThs = Array.from(table.querySelectorAll("th"));
+            const colIdx = allThs.indexOf(th); // Get the actual column index
+            const tbody = table.tBodies[0];
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            const type = getSortType(colIdx);
+            const asc = !th.classList.contains("asc");
+
+            // Remove asc class from all headers
+            allThs.forEach(h => h.classList.remove("asc"));
+
+            // Add asc class to current header if ascending
+            if (asc) th.classList.add("asc");
+
+            rows.sort((a, b) => {
+                const aVal = parseCellValue(a.children[colIdx], type);
+                const bVal = parseCellValue(b.children[colIdx], type);
+                if (aVal < bVal) return asc ? -1 : 1;
+                if (aVal > bVal) return asc ? 1 : -1;
+                return 0;
+            });
+
+            // Re-append sorted rows
+            rows.forEach(row => tbody.appendChild(row));
+        });
+    });
+});
+</script>
+
+{% endblock %}
