@@ -1,0 +1,60 @@
+name: Bug Report
+description: Report a problem with the Unraid Duplicate File Handler
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🐞 Bug Report
+
+        Thanks for reporting a problem! Please fill out the following to help us troubleshoot.
+
+  - type: input
+    id: version
+    attributes:
+      label: App Version
+      description: What version of the Duplicate File Handler are you using? (Shown on the main menu page)
+      placeholder: e.g., 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: unraid-version
+    attributes:
+      label: Unraid Version
+      description: Your Unraid OS version
+      placeholder: e.g., 6.12.10
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug or unexpected behavior
+      placeholder: Be as detailed as possible, including steps to reproduce
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or error messages
+      description: Paste any logs, traceback, or screenshots here (if applicable)
+
+  - type: checkboxes
+    id: attempted
+    attributes:
+      label: What have you tried?
+      options:
+        - label: Restarted the container
+        - label: Verified permissions on `/mnt`
+        - label: Refreshed the web UI
+        - label: Other (explain in the description)
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Any other info that might help us reproduce or diagnose the issue
