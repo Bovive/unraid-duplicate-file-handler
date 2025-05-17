@@ -1,6 +1,6 @@
 ﻿from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app, jsonify, send_from_directory
 from modules.scan import scan_for_duplicates, get_array_drives, get_pool_drives, SCAN_PROGRESS, is_canceled
-from modules.cleanup import write_cleanup_results, delete_duplicates_logic, move_duplicates_logic, CLEANUP_PROGRESS
+from modules.cleanup import write_cleanup_results, delete_duplicates_logic, move_duplicates_logic, CLEANUP_PROGRESS, CURRENT_FILE_PROGRESS, CURRENT_FILE_NAME
 from modules.forms import ScanForm
 from config import APP_NAME, APP_VERSION
 from threading import Thread, Event, Lock
@@ -90,16 +90,18 @@ def start_scan():
             return jsonify({"error": "A scan is already in progress. Please wait for it to complete."}), 400
         is_scanning = True
 
-    form = ScanForm(request.form)
-
-    # Dynamically populate the drives choices based on source_choice
-    source_choice = form.source_choice.data or "1"
+    # Get source choice first (before form)
+    source_choice = request.form.get("source_choice") or "1"
     available_drives = {
         "1": get_array_drives(),
         "2": get_pool_drives(),
         "3": get_array_drives() + get_pool_drives(),
     }
-    form.drives.choices = [(d, d) for d in available_drives.get(source_choice, [])]
+    drive_choices = [(d, d) for d in available_drives.get(source_choice, [])]
+
+    # Now build the form with choices pre-applied
+    form = ScanForm(MultiDict(request.form))
+    form.drives.choices = drive_choices
 
     if form.validate():
         selected_disks = form.drives.data
@@ -297,3 +299,12 @@ def get_cleanup_summary(filename):
         return jsonify(summary)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@routes.route("/current_file_progress", methods=["GET"])
+def current_file_progress():
+    with CURRENT_FILE_PROGRESS.get_lock():
+        progress = CURRENT_FILE_PROGRESS.value
+    with CURRENT_FILE_NAME.get_lock():
+        filename = CURRENT_FILE_NAME.value.decode("utf-8").strip()
+    return jsonify({"progress": progress, "filename": filename})
+

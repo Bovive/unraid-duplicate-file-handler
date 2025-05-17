@@ -337,3 +337,21 @@ button {
     max-width: 700px;
     padding: 1.5rem;
 }
+
+.progress-label {
+    font-weight: bold;
+    margin-top: 1em;
+    margin-bottom: 0.25em;
+    font-size: 1rem;
+}
+
+#current-file-name {
+    font-style: italic;
+    color: #555;
+    font-size: 0.9rem;
+    margin-top: 0.25em;
+}
+
+.current-file-bar {
+    background-color: #3c21eb;
+}

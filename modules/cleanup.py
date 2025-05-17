@@ -1,10 +1,29 @@
-import os, csv, json, shutil
+import os, csv, json, shutil, sys, re
 from datetime import datetime
 from flask import current_app
-from multiprocessing import Value
+from multiprocessing import Value, Array
 
 # Global progress variable for cleanup actions
 CLEANUP_PROGRESS = Value("i", 0)
+CURRENT_FILE_PROGRESS = Value("i", 0)
+CURRENT_FILE_NAME = Array("c", 256)  # Fixed-length char buffer
+
+def copy_with_progress(src, dst, chunk_size=1024*1024):
+    total_size = os.path.getsize(src)
+    copied = 0
+    with open(src, 'rb') as fsrc, open(dst, 'wb') as fdst:
+        while True:
+            chunk = fsrc.read(chunk_size)
+            if not chunk:
+                break
+            fdst.write(chunk)
+            copied += len(chunk)
+            with CURRENT_FILE_PROGRESS.get_lock():
+                CURRENT_FILE_PROGRESS.value = int(copied / total_size * 100)
+    shutil.copystat(src, dst)
+    os.remove(src)
+    with CURRENT_FILE_PROGRESS.get_lock():
+        CURRENT_FILE_PROGRESS.value = 0
 
 def clean_old_cleanup_files(directory, keep_count=10):
     # Clean CSV files
@@ -118,38 +137,64 @@ def delete_duplicates_logic(csv_file):
 
     # Read all rows first to get total for progress
     with open(csv_path, newline="") as f:
-        reader = list(csv.DictReader(f))
-    total = sum(1 for row in reader if row.get("Keep", "").strip().lower() != "yes" and row.get("Full Path", "").strip())
+        reader_list = list(csv.DictReader(f))
 
+    file_size_map = {}
+    total_size = 0
+    for row in reader_list:
+        keep = row.get("Keep", "").strip().lower()
+        file_path = row.get("Full Path", "").strip()
+        if keep != "yes" and file_path:
+            with CURRENT_FILE_NAME.get_lock():
+                CURRENT_FILE_NAME.value = file_path.encode("utf-8")[:255]
+            attempted.append(file_path)
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    deleted.append(file_path)
+                    source_dirs.add(os.path.dirname(file_path))
+                else:
+                    failed.append(f"File not found: {file_path}")
+            except Exception as e:
+                failed.append(f"{file_path}: {e}")
     try:
         # --- Phase 1: File processing (0-85%) ---
-        for idx, row in enumerate(reader):
+        processed_size = 0
+        for row in reader_list:
             keep = row.get("Keep", "").strip().lower()
             file_path = row.get("Full Path", "").strip()
             if keep != "yes" and file_path:
                 attempted.append(file_path)
                 try:
                     if os.path.exists(file_path):
+                        # Simulate per-file progress
+                        with CURRENT_FILE_PROGRESS.get_lock():
+                            CURRENT_FILE_PROGRESS.value = 100
                         os.remove(file_path)
                         deleted.append(file_path)
                         source_dirs.add(os.path.dirname(file_path))
+
+                        with CURRENT_FILE_PROGRESS.get_lock():
+                            CURRENT_FILE_PROGRESS.value = 0
                     else:
                         failed.append(f"File not found: {file_path}")
                 except Exception as e:
                     failed.append(f"{file_path}: {e}")
-            # Update progress (0-85%)
-            with CLEANUP_PROGRESS.get_lock():
-                progress = int((idx + 1) / total * 85) if total else 85
-                CLEANUP_PROGRESS.value = min(progress, 85)
+                processed_size += file_size_map.get(file_path, 0)
+                with CLEANUP_PROGRESS.get_lock():
+                    progress = int(processed_size / total_size * 85) if total_size else 85
+                    CLEANUP_PROGRESS.value = min(progress, 85)
 
         # --- Phase 2: Directory cleanup (85-95%) ---
         all_dirs = set()
         for d in source_dirs:
-            while True:
-                if d == scan_root.rstrip(os.sep) or not d.startswith(scan_root):
-                    break
-                all_dirs.add(d)
-                d = os.path.dirname(d)
+            disk_root_match = re.match(r"(/mnt/disk\d+)", d)
+            if disk_root_match:
+                disk_root = disk_root_match.group(1)
+                current = d
+                while current and current.startswith(disk_root) and current != disk_root:
+                    all_dirs.add(current)
+                    current = os.path.dirname(current)
         all_dirs_sorted = sorted(all_dirs, key=lambda x: -x.count(os.sep))
         dir_total = len(all_dirs_sorted)
         for i, d in enumerate(all_dirs_sorted):
@@ -226,8 +271,6 @@ def move_duplicates_logic(csv_file, destination):
     if not os.path.isfile(csv_path):
         return {"error": "CSV file not found."}, 404
 
-    scan_root = "/mnt/disk6/storage/"
-
     moved = []
     failed = []
     attempted = []
@@ -235,41 +278,101 @@ def move_duplicates_logic(csv_file, destination):
 
     # Read all rows first to get total for progress
     with open(csv_path, newline="") as f:
-        reader = list(csv.DictReader(f))
-    total = sum(1 for row in reader if row.get("Keep", "").strip().lower() != "yes" and row.get("Full Path", "").strip())
+        reader_list = list(csv.DictReader(f))
+    total = sum(1 for row in reader_list if row.get("Keep", "").strip().lower() != "yes" and row.get("Full Path", "").strip())
+
+    # --- Free space check before moving ---
+    file_size_map = {}
+    total_size = 0
+    for row in reader_list:
+        keep = row.get("Keep", "").strip().lower()
+        file_path = row.get("Full Path", "").strip()
+        if keep != "yes" and file_path and os.path.exists(file_path):
+            try:
+                size = os.path.getsize(file_path)
+                file_size_map[file_path] = size
+                total_size += size
+            except Exception:
+                file_size_map[file_path] = 0
+    usage = shutil.disk_usage(destination)
+    if total_size > usage.free:
+        return {
+            "error": (
+                f"Not enough free space at destination. "
+                f"Required: {total_size/1024/1024:.2f} MB, "
+                f"Available: {usage.free/1024/1024:.2f} MB"
+            )
+        }, 400
 
     try:
-        # --- Phase 1: File processing (0-85%) ---
-        for idx, row in enumerate(reader):
+        # --- Phase 1: File processing (0–85%) with byte-accurate progress ---
+        file_size_map = {}
+        total_size = 0
+
+        # First pass: build file size map
+        for row in reader_list:
+            keep = row.get("Keep", "").strip().lower()
+            file_path = row.get("Full Path", "").strip()
+            if keep != "yes" and file_path and os.path.exists(file_path):
+                try:
+                    size = os.path.getsize(file_path)
+                    file_size_map[file_path] = size
+                    total_size += size
+                except Exception:
+                    file_size_map[file_path] = 0  # Can't stat, assume 0
+
+        processed_size = 0
+
+        # Second pass: move files and update progress
+        for row in reader_list:
             keep = row.get("Keep", "").strip().lower()
             file_path = row.get("Full Path", "").strip()
             if keep != "yes" and file_path:
-                rel_path = os.path.relpath(file_path, scan_root)
-                dest_path = os.path.join(destination, rel_path)
+                with CURRENT_FILE_NAME.get_lock():
+                    CURRENT_FILE_NAME.value = file_path.encode("utf-8")[:255]
+
+                match = re.search(r"/mnt/disk\d+/(.+)", file_path)
+                if match:
+                    rel_path = match.group(1)
+                    dest_path = os.path.join(destination, rel_path)
+                else:
+                    print(f"Could not determine relative path for {file_path}")
+                    sys.stdout.flush()
+                    failed.append(f"Could not determine relative path for {file_path}")
+                    continue
+
                 attempted.append({"from": file_path, "to": dest_path})
                 try:
                     if os.path.exists(file_path):
                         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-                        shutil.move(file_path, dest_path)
+                        print(f"Moving: {file_path} -> {dest_path}")
+                        sys.stdout.flush()
+                        copy_with_progress(file_path, dest_path)
                         moved.append({"from": file_path, "to": dest_path})
-                        source_dirs.add(os.path.dirname(file_path))
-                    else:
-                        failed.append(f"File not found: {file_path}")
                 except Exception as e:
+                    print(f"Failed to move {file_path} -> {dest_path}: {e}")
+                    sys.stdout.flush()
                     failed.append(f"{file_path}: {e}")
-            # Update progress (0-85%)
-            with CLEANUP_PROGRESS.get_lock():
-                progress = int((idx + 1) / total * 85) if total else 85
-                CLEANUP_PROGRESS.value = min(progress, 85)
+
+                # Update progress based on size
+                processed_size += file_size_map.get(file_path, 0)
+                with CLEANUP_PROGRESS.get_lock():
+                    progress = int(processed_size / total_size * 85) if total_size else 85
+                    CLEANUP_PROGRESS.value = min(progress, 85)         
+
+        with CURRENT_FILE_NAME.get_lock():
+            CURRENT_FILE_NAME.value = b""
 
         # --- Phase 2: Directory cleanup (85-95%) ---
         all_dirs = set()
         for d in source_dirs:
-            while True:
-                if d == scan_root.rstrip(os.sep) or not d.startswith(scan_root):
-                    break
-                all_dirs.add(d)
-                d = os.path.dirname(d)
+            disk_root_match = re.match(r"(/mnt/disk\d+)", d)
+            if disk_root_match:
+                disk_root = disk_root_match.group(1)
+                current = d
+                while current and current.startswith(disk_root) and current != disk_root:
+                    all_dirs.add(current)
+                    current = os.path.dirname(current)
         all_dirs_sorted = sorted(all_dirs, key=lambda x: -x.count(os.sep))
         dir_total = len(all_dirs_sorted)
         for i, d in enumerate(all_dirs_sorted):
@@ -322,4 +425,3 @@ def move_duplicates_logic(csv_file, destination):
         with CLEANUP_PROGRESS.get_lock():
             CLEANUP_PROGRESS.value = 100
         return {"error": f"Failed to process CSV: {e}"}, 500
-

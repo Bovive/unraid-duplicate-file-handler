@@ -35,10 +35,18 @@
         </div>
         <!-- Progress bar for cleanup actions -->
         <div id="cleanup-progress-container" class="progress-container" style="display:none;">
+            <p class="progress-label">Total Progress</p>
             <div class="progress-bar">
                 <div id="cleanup-progress-bar-inner" class="progress-bar-inner"></div>
             </div>
             <p id="cleanup-progress-text" class="progress-text">0% Complete</p>
+
+            <p class="progress-label">Current File Progress</p>
+            <div class="progress-bar" style="margin-top: 0.5em;">
+                <div id="current-file-progress-bar-inner" class="progress-bar-inner current-file-bar"></div>
+            </div>
+            <p id="current-file-progress-text" class="progress-text">0% Current File</p>
+            <p id="current-file-name" class="progress-text" style="font-style: italic; color: #555;"></p>
         </div>
     </div>
 </div>
@@ -144,21 +152,35 @@ function showCleanupProgress(csvFile) {
     // Always show the progress bar immediately
     const container = document.getElementById('cleanup-progress-container');
     container.style.display = 'block';
+    document.getElementById('current-file-progress-bar-inner').style.width = '0%';
+    document.getElementById('current-file-progress-text').textContent = '0% Current File';
+    document.getElementById('current-file-name').textContent = '';
 
     function pollProgress() {
-        fetch('/cleanup_progress')
-            .then(response => response.json())
-            .then(data => {
-                const progress = data.progress || 0;
-                document.getElementById('cleanup-progress-bar-inner').style.width = progress + '%';
-                document.getElementById('cleanup-progress-text').textContent = progress + '% Complete';
-                if (progress < 100) {
-                    setTimeout(pollProgress, 500);
-                } else {
-                    pollResult();
-                }
-            });
-    }
+    fetch('/cleanup_progress')
+        .then(response => response.json())
+        .then(data => {
+            const progress = data.progress || 0;
+            document.getElementById('cleanup-progress-bar-inner').style.width = progress + '%';
+            document.getElementById('cleanup-progress-text').textContent = progress + '% Complete';
+
+            fetch('/current_file_progress')
+                .then(res => res.json())
+                .then(fileData => {
+                    const fileProgress = fileData.progress || 0;
+                    document.getElementById('current-file-progress-bar-inner').style.width = fileProgress + '%';
+                    document.getElementById('current-file-progress-text').textContent = fileProgress + '% Current File';
+                    document.getElementById('current-file-name').textContent = fileData.filename || '';
+                });
+
+            if (progress < 100) {
+                setTimeout(pollProgress, 500);
+            } else {
+                pollResult();
+            }
+        });
+}
+
     function pollResult() {
         fetch(`/cleanup_result/${csvFile}`)
             .then(res => res.json())
