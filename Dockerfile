@@ -8,6 +8,7 @@ WORKDIR /app
 COPY app.py requirements.txt config.py /app/
 COPY templates/ /app/templates/
 COPY modules/ /app/modules/
+COPY static/ /app/static/
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
