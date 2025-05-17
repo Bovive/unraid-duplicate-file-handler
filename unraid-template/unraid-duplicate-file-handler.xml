@@ -1,0 +1,54 @@
+<Container>
+	<Name>Unraid Duplicate File Handler</Name>
+	<Repository>ghcr.io/bovive/unraid-duplicate-file-handler:latest</Repository>
+	<Registry>https://github.com/Bovive/unraid-duplicate-file-handler</Registry>
+	<Network>bridge</Network>
+	<MyIP/>
+	<Shell>bash</Shell>
+	<Privileged>false</Privileged>
+	<ExtraParams>-it</ExtraParams>
+	<Support>https://github.com/Bovive/unraid-duplicate-file-handler/issues</Support>
+	<Project>https://github.com/Bovive/unraid-duplicate-file-handler</Project>
+	<Overview>
+		A web-based tool designed for Unraid to identify and clean up duplicate files across array disks.
+		Compare files by relative path, review keep/delete decisions, and either move or delete them with full progress feedback.
+		Ideal for cleaning up after interrupted Unbalance runs or manual copy operations.
+	</Overview>
+	<Category>Tools:Utilities</Category>
+	<WebUI>http://[IP]:[PORT:5000]</WebUI>
+	<Icon>https://raw.githubusercontent.com/Bovive/unraid-duplicate-file-handler/refs/heads/main/static/images/logo-big.png</Icon>
+
+	<Environment>
+		<Variable>
+			<Name>SECRET_KEY</Name>
+			<Value></Value>
+			<Description>Random 32-character string used for session security. Recommended: run `python -c "import secrets; print(secrets.token_hex(16))"` to generate.</Description>
+			<Required>true</Required>
+			<Mask>false</Mask>
+		</Variable>
+	</Environment>
+
+	<Networking>
+		<Port>
+			<HostPort>5000</HostPort>
+			<ContainerPort>5000</ContainerPort>
+			<Protocol>tcp</Protocol>
+			<Description>Web UI</Description>
+		</Port>
+	</Networking>
+
+	<Data>
+		<Volume>
+			<HostDir>/mnt</HostDir>
+			<ContainerDir>/mnt</ContainerDir>
+			<Mode>rw</Mode>
+			<Description>Read/write access to Unraid array disks for moving and deleting files</Description>
+		</Volume>
+		<Volume>
+			<HostDir>/mnt/user/appdata/unraid-duplicate-file-handler</HostDir>
+			<ContainerDir>/app/static/output</ContainerDir>
+			<Mode>rw</Mode>
+			<Description>App output and persistent scan/cleanup results</Description>
+		</Volume>
+	</Data>
+</Container>
