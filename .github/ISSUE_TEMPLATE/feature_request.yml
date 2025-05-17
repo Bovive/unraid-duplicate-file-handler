@@ -1,0 +1,41 @@
+name: Feature Request
+description: Suggest a new idea or improvement for the Duplicate File Handler
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 💡 Feature Request
+
+        Thanks for suggesting an idea! Let us know how this feature would help.
+
+  - type: input
+    id: motivation
+    attributes:
+      label: What's the problem you're trying to solve?
+      description: What use case or scenario is missing today?
+      placeholder: e.g., I want to preview which files will be deleted before committing
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Describe the feature you'd like
+      description: How should this feature work from the user's perspective?
+      placeholder: Be specific about UI changes, behavior, or functionality
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you considered any other workarounds or solutions?
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add screenshots, diagrams, or links to other tools for inspiration (optional)
