@@ -76,7 +76,7 @@ def scan_for_duplicates(selected_disks, min_size=None, ext_filter=None, keep_str
     processed_files = 0
 
     with SCAN_PROGRESS.get_lock():
-        SCAN_PROGRESS.value = 0
+        SCAN_PROGRESS.value = 1  # Show early progress immediately
 
     if total_files == 0:
         SCAN_PROGRESS.value = 100
