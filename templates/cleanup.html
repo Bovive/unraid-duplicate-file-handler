@@ -33,6 +33,13 @@
         <div class="container" id="cleanup-summary-container" style="display:none;">
             <p id="cleanup-summary-placeholder">Placeholder for cleanup summary.</p>
         </div>
+        <!-- Progress bar for cleanup actions -->
+        <div id="cleanup-progress-container" class="progress-container" style="display:none;">
+            <div class="progress-bar">
+                <div id="cleanup-progress-bar-inner" class="progress-bar-inner"></div>
+            </div>
+            <p id="cleanup-progress-text" class="progress-text">0% Complete</p>
+        </div>
     </div>
 </div>
 
@@ -60,7 +67,6 @@ function formatDriveSummary(drive_summary) {
 }
 
 function parseDate(dateStr) {
-    // Format: MM/DD/YYYY HH:MM:SS AM/PM
     if (!dateStr) return 0;
     return new Date(dateStr);
 }
@@ -122,6 +128,7 @@ function renderCleanupSummary(summary) {
         }
     }
     container.innerHTML = html;
+    hideCleanupProgress();
 }
 
 function hideCleanupSummary() {
@@ -132,8 +139,48 @@ function hideCleanupSummary() {
     }
 }
 
+// Progress bar logic for cleanup
+function showCleanupProgress(csvFile) {
+    // Always show the progress bar immediately
+    const container = document.getElementById('cleanup-progress-container');
+    container.style.display = 'block';
+
+    function pollProgress() {
+        fetch('/cleanup_progress')
+            .then(response => response.json())
+            .then(data => {
+                const progress = data.progress || 0;
+                document.getElementById('cleanup-progress-bar-inner').style.width = progress + '%';
+                document.getElementById('cleanup-progress-text').textContent = progress + '% Complete';
+                if (progress < 100) {
+                    setTimeout(pollProgress, 500);
+                } else {
+                    pollResult();
+                }
+            });
+    }
+    function pollResult() {
+        fetch(`/cleanup_result/${csvFile}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "running") {
+                    setTimeout(pollResult, 1000);
+                } else {
+                    renderCleanupSummary(data);
+                }
+            });
+    }
+    pollProgress();
+}
+function hideCleanupProgress() {
+    document.getElementById('cleanup-progress-container').style.display = 'none';
+    document.getElementById('cleanup-progress-bar-inner').style.width = '0%';
+    document.getElementById('cleanup-progress-text').textContent = '0% Complete';
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     hideCleanupSummary();
+    hideCleanupProgress();
     fetch("/list_scan_summaries")
         .then(res => res.json())
         .then(data => {
@@ -172,7 +219,6 @@ document.addEventListener("DOMContentLoaded", function() {
                     `;
                     tbody.appendChild(row);
                 });
-                // Default sort by date (newest first)
                 sortTable(document.getElementById("scans-table"), 0, "date", false);
 
                 // Attach event listeners for Delete and Move buttons
@@ -182,12 +228,9 @@ document.addEventListener("DOMContentLoaded", function() {
                         if (!csvFile) return;
                         const confirmation = prompt('Type DELETE to confirm deletion of all duplicate files not marked as Keep: yes.');
                         if (confirmation === 'DELETE') {
+                            showCleanupProgress(csvFile);
                             fetch(`/delete_duplicates/${csvFile}`, { method: 'POST' })
-                                .then(res => res.json())
-                                .then(data => {
-                                    renderCleanupSummary(data);
-                                    alert(data.message || 'Deletion complete.');
-                                })
+                                .then(() => {}) // Progress/result polling will handle UI
                                 .catch(() => alert('Error deleting duplicates.'));
                         } else if (confirmation !== null) {
                             alert('You must type DELETE in all caps to confirm.');
@@ -205,14 +248,11 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
 
-    // Only attach sort handlers to sortable columns (not .not-sortable)
     document.querySelectorAll("#scans-table th:not(.not-sortable)").forEach((th) => {
         th.addEventListener("click", function() {
             const type = th.getAttribute("data-sort") || "str";
-            // Find the actual column index
             const allThs = Array.from(document.querySelectorAll("#scans-table th"));
             const colIdx = allThs.indexOf(th);
-            // Toggle sort direction
             let asc = th.classList.toggle("asc");
             allThs.forEach(other => {
                 if (other !== th) other.classList.remove("asc");
@@ -266,16 +306,12 @@ function fetchDirs(base) {
             };
             dirList.appendChild(li);
         });
-        // Always enable the Move Here button for the current directory
         selectedDir = currentBase;
         selectDestBtn.disabled = false;
     });
 }
 
 document.addEventListener("DOMContentLoaded", function() {
-    // ... your existing code ...
-
-    // Move button event
     document.body.addEventListener('click', function(e) {
         if (e.target.classList.contains('move-btn')) {
             const csvFile = e.target.getAttribute('data-csv');
@@ -283,26 +319,21 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     });
 
-    // Modal close
     document.getElementById("move-modal-close").onclick = function() {
         document.getElementById("move-modal").style.display = "none";
     };
 
-    // Move Here button
     document.getElementById("select-dest-btn").onclick = function() {
         if (!selectedDir || !moveCsvFile) return;
         const confirmation = prompt(`Type MOVE to confirm moving duplicate files to:\n${selectedDir}`);
         if (confirmation === "MOVE") {
+            showCleanupProgress(moveCsvFile);
             fetch(`/move_duplicates/${moveCsvFile}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ destination: selectedDir })
             })
-            .then(res => res.json())
-            .then(data => {
-                renderCleanupSummary(data);
-                alert(data.message || 'Move complete.');
-            })
+            .then(() => {}) // Progress/result polling will handle UI
             .catch(() => alert('Error moving duplicates.'));
             document.getElementById("move-modal").style.display = "none";
         } else if (confirmation !== null) {
@@ -310,6 +341,5 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     };
 });
-
 </script>
 {% endblock %}

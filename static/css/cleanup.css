@@ -299,3 +299,41 @@ button {
         background: #f5f5f5;
         width: 180px;
     }
+
+.progress-container {
+    margin-top: 2rem;
+    display: none;
+    text-align: center;
+}
+
+.progress-bar {
+    width: 100%;
+    background-color: #f3f3f3;
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 0 auto;
+    max-width: 600px;
+}
+
+.progress-bar-inner {
+    height: 20px;
+    width: 0%;
+    background-color: #4CAF50;
+    border-radius: 5px;
+    transition: width 0.4s ease;
+}
+
+.progress-text {
+    margin-top: 0.5rem;
+    font-size: 1rem;
+    color: #333;
+}
+
+#cleanup-progress-container {
+    display: none;
+    text-align: center;
+    width: 100%;
+    margin-top: 2rem;
+    max-width: 700px;
+    padding: 1.5rem;
+}

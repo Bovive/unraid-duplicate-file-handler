@@ -1,6 +1,6 @@
 ﻿from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app, jsonify, send_from_directory
 from modules.scan import scan_for_duplicates, get_array_drives, get_pool_drives, SCAN_PROGRESS, is_canceled
-from modules.cleanup import write_cleanup_results, delete_duplicates_logic, move_duplicates_logic
+from modules.cleanup import write_cleanup_results, delete_duplicates_logic, move_duplicates_logic, CLEANUP_PROGRESS
 from modules.forms import ScanForm
 from config import APP_NAME, APP_VERSION
 from threading import Thread, Event, Lock
@@ -17,6 +17,8 @@ scan_summary_lock = Lock()
 is_scanning = False  # Flag to track if a scan is in progress
 is_scanning_lock = Lock()  # Lock for thread-safe access to is_scanning
 is_canceled = False
+cleanup_results = {}
+cleanup_threads = {}
 
 @routes.route("/")
 def index():
@@ -61,6 +63,12 @@ def cleanup():
 def progress():
     with SCAN_PROGRESS.get_lock():
         progress = SCAN_PROGRESS.value
+    return {"progress": progress}
+
+@routes.route("/cleanup_progress", methods=["GET"])
+def cleanup_progress():
+    with CLEANUP_PROGRESS.get_lock():
+        progress = CLEANUP_PROGRESS.value
     return {"progress": progress}
 
 @routes.route("/get_drives/<source_choice>", methods=["GET"])
@@ -197,15 +205,41 @@ def list_scan_summaries():
 
 @routes.route("/delete_duplicates/<csv_file>", methods=["POST"])
 def delete_duplicates(csv_file):
-    result, status = delete_duplicates_logic(csv_file)
-    return jsonify(result), status
+    app = current_app._get_current_object()
+    def run_cleanup():
+        with app.app_context():
+            result, status = delete_duplicates_logic(csv_file)
+            cleanup_results[csv_file] = (result, status)
+    with CLEANUP_PROGRESS.get_lock():
+        CLEANUP_PROGRESS.value = 0
+    thread = Thread(target=run_cleanup, daemon=True)
+    cleanup_threads[csv_file] = thread
+    thread.start()
+    return jsonify({"started": True}), 202
+
+@routes.route("/cleanup_result/<csv_file>")
+def cleanup_result(csv_file):
+    result = cleanup_results.get(csv_file)
+    if result:
+        return jsonify(result[0]), result[1]
+    return jsonify({"status": "running"}), 202
 
 @routes.route("/move_duplicates/<csv_file>", methods=["POST"])
 def move_duplicates(csv_file):
     data = request.get_json()
     destination = data.get("destination") if data else None
-    result, status = move_duplicates_logic(csv_file, destination)
-    return jsonify(result), status
+    app = current_app._get_current_object()  # Capture the app object
+
+    def run_move():
+        with app.app_context():  # Use the captured app object
+            result, status = move_duplicates_logic(csv_file, destination)
+            cleanup_results[csv_file] = (result, status)
+    with CLEANUP_PROGRESS.get_lock():
+        CLEANUP_PROGRESS.value = 0
+    thread = Thread(target=run_move, daemon=True)
+    cleanup_threads[csv_file] = thread
+    thread.start()
+    return jsonify({"started": True}), 202
 
 @routes.route("/list_dirs", methods=["POST"])
 def list_dirs():
