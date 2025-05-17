@@ -61,6 +61,16 @@ Once started, open:
 4. **Track Progress**: Real-time UI with per-file and total cleanup bars  
 5. **Reports**: Download CSV/JSON summaries after each cleanup
 
+## 📂 Supported Storage Types
+
+This tool works with any combination of:
+
+- 🧱 Array disks (e.g. `/mnt/disk1`, `/mnt/disk2`, ...)
+- 💧 Pool devices (e.g. `/mnt/cache`, `/mnt/ssd`, ...)
+- 🔁 Both array and pool drives together
+
+Simply select your preferred source in the **Drive Source** dropdown on the scan page.
+
 ## ⚠️ Important Usage Note
 
 Once a **scan** or **cleanup** is started, the operation will continue running in the background — even if you navigate away from the page, close the browser, or refresh.
