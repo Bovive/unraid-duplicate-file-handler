@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<Container version="2">
+	<Name>Unraid Duplicate File Handler</Name>
+	<Repository>ghcr.io/bovive/unraid-duplicate-file-handler:latest</Repository>
+	<Registry>https://github.com/Bovive/unraid-duplicate-file-handler</Registry>
+	<Network>bridge</Network>
+	<MyIP/>
+	<Shell>bash</Shell>
+	<Privileged>false</Privileged>
+	<Support>https://github.com/Bovive/unraid-duplicate-file-handler/issues</Support>
+	<Project>https://github.com/Bovive/unraid-duplicate-file-handler</Project>
+	<Overview>
+		A web-based tool designed for Unraid to identify and clean up duplicate files across array disks and/or pools.
+		Compare files by relative path, review keep/delete decisions, and either move or delete them with full progress feedback.
+		Ideal for cleaning up after interrupted Unbalance runs (https://github.com/jbrodriguez/unbalance) or manual copy operations.
+	</Overview>
+	<Category>Tools:Utilities</Category>
+	<WebUI>http://[IP]:[PORT:5000]</WebUI>
+	<Icon>https://raw.githubusercontent.com/Bovive/unraid-duplicate-file-handler/refs/heads/main/static/images/logo-big.png</Icon>
+	<ExtraParams>-it</ExtraParams>
+
+	<!-- Mounts -->
+	<Config Name="Mount Path" Target="/mnt" Default="/mnt" Mode="rw" Description="Read/write access to Unraid array or pool disks." Type="Path" Display="always" Required="true" Mask="false">/mnt</Config>
+	<Config Name="Output Files" Target="/app/static/output" Default="/mnt/user/appdata/unraid-duplicate-file-handler" Mode="rw" Description="Stores scan/cleanup results." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/unraid-duplicate-file-handler</Config>
+
+	<!-- Secret key variable -->
+	<Config Name="Secret Key" Target="SECRET_KEY" Default="" Mode="" Description="Required for session security • Use a 32-character hex string (0-9, a-f) • In the Unraid terminal, run: openssl rand -hex 16" Type="Variable" Display="always" Required="true" Mask="false"></Config>
+
+	<!-- Port -->
+	<Config Name="Web UI Port" Target="5000" Default="5000" Mode="" Description="Flask web interface port." Type="Port" Display="always" Required="true" Mask="false">5000</Config>
+</Container>
