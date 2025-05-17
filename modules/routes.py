@@ -262,7 +262,6 @@ def cleanup_history():
 
 @routes.route("/list_cleanup_history")
 def list_cleanup_history():
-    # Adjust the path to where your cleanup job summaries are stored
     output_dir = os.path.join(current_app.root_path, "static", "output", "cleanup_results")
     history = []
     if not os.path.exists(output_dir):
@@ -271,7 +270,30 @@ def list_cleanup_history():
         try:
             with open(json_path, "r") as f:
                 summary = json.load(f)
-                history.append(summary)
+                # Only include summary fields, not large arrays
+                history.append({
+                    "timestamp": summary.get("timestamp"),
+                    "action": summary.get("action"),
+                    "original_csv": summary.get("original_csv"),
+                    "total_attempted": summary.get("total_attempted"),
+                    "total_deleted": summary.get("total_deleted"),
+                    "total_moved": summary.get("total_moved"),
+                    "total_failed": summary.get("total_failed"),
+                    "filename": os.path.basename(json_path)
+                })
         except Exception as e:
             print(f"Error reading cleanup history {json_path}: {e}")
     return jsonify({"history": history})
+
+@routes.route("/get_cleanup_summary/<filename>")
+def get_cleanup_summary(filename):
+    output_dir = os.path.join(current_app.root_path, "static", "output", "cleanup_results")
+    json_path = os.path.join(output_dir, filename)
+    if not os.path.isfile(json_path):
+        return jsonify({"error": "Summary not found"}), 404
+    try:
+        with open(json_path, "r") as f:
+            summary = json.load(f)
+        return jsonify(summary)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

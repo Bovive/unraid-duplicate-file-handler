@@ -41,7 +41,6 @@ function formatNumberWithCommas(number) {
     return number != null ? number.toLocaleString() : "0";
 }
 
-// Accepts "YYYY-MM-DD_HH-MM-SS" and returns "MM/DD/YYYY HH:MM:SS AM/PM"
 function formatDisplayDate(dateStr) {
     if (!dateStr) return "N/A";
     const [datePart, timePart] = dateStr.split('_');
@@ -63,7 +62,6 @@ function formatDisplayDate(dateStr) {
     );
 }
 
-// Accepts "YYYY-MM-DD_HH-MM-SS" and returns a sortable timestamp
 function parseDateString(text) {
     if (!text) return 0;
     const [datePart, timePart] = text.split('_');
@@ -81,8 +79,8 @@ function parseCellValue(cell, type) {
 }
 
 function getSortType(idx) {
-    if (idx === 0) return "date"; // Date
-    if ([2,3,4,5].includes(idx)) return "int"; // Numbers
+    if (idx === 0) return "date";
+    if ([2,3,4,5].includes(idx)) return "int";
     return "str";
 }
 
@@ -152,6 +150,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     const displayDate = formatDisplayDate(summary.timestamp);
                     const rawDate = summary.timestamp || "";
                     const row = document.createElement("tr");
+                    row.setAttribute("data-filename", summary.filename); // Store filename for lazy loading
                     row.innerHTML = `
                         <td data-raw="${rawDate}">${displayDate}</td>
                         <td>${summary.action ? summary.action.charAt(0).toUpperCase() + summary.action.slice(1) : ''}</td>
@@ -166,11 +165,15 @@ document.addEventListener("DOMContentLoaded", function() {
                     tbody.appendChild(row);
                 });
 
-                // Attach show-summary button handlers
-                tbody.querySelectorAll('.show-summary-btn').forEach((btn, i) => {
+                // Attach show-summary button handlers (lazy-load details)
+                tbody.querySelectorAll('.show-summary-btn').forEach((btn) => {
                     btn.addEventListener('click', function(e) {
                         e.stopPropagation();
-                        renderHistorySummary(data.history[i]);
+                        const row = btn.closest("tr");
+                        const filename = row.getAttribute("data-filename");
+                        fetch(`/get_cleanup_summary/${filename}`)
+                            .then(res => res.json())
+                            .then(summary => renderHistorySummary(summary));
                     });
                 });
             }
@@ -181,16 +184,13 @@ document.addEventListener("DOMContentLoaded", function() {
         th.addEventListener("click", function() {
             const table = th.closest("table");
             const allThs = Array.from(table.querySelectorAll("th"));
-            const colIdx = allThs.indexOf(th); // Get the actual column index
+            const colIdx = allThs.indexOf(th);
             const tbody = table.tBodies[0];
             const rows = Array.from(tbody.querySelectorAll("tr"));
             const type = getSortType(colIdx);
             const asc = !th.classList.contains("asc");
 
-            // Remove asc class from all headers
             allThs.forEach(h => h.classList.remove("asc"));
-
-            // Add asc class to current header if ascending
             if (asc) th.classList.add("asc");
 
             rows.sort((a, b) => {
@@ -201,7 +201,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 return 0;
             });
 
-            // Re-append sorted rows
             rows.forEach(row => tbody.appendChild(row));
         });
     });
