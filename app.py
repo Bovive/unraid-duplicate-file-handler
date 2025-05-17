@@ -14,7 +14,7 @@ app = Flask(__name__)
 
 # Suppress Flask's request logs by setting the werkzeug logger level to ERROR
 log = logging.getLogger('werkzeug')
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.ERROR)
 
 # Set the secret key for CSRF protection
 app.secret_key = SECRET_KEY
