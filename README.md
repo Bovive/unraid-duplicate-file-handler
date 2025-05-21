@@ -2,7 +2,7 @@
 
 **A web-based tool designed specifically for Unraid servers to detect, review, and clean up duplicate files that exist across multiple array disks.**
 
-This tool compares files based on their **relative paths** (e.g. `Media/Movies/Inception.mkv`) across different physical disks (such as `/mnt/disk1`, `/mnt/disk2`, etc.). If identical or similar directory structures exist on multiple drives — such as after a misconfigured copy or an interrupted [Unbalance](https://github.com/jbrodriguez/unbalance) operation — this tool can identify and help clean them up.
+This tool compares files based on their **relative paths** (e.g. `Media/Movies/MyMovie.mkv`) across different physical disks (such as `/mnt/disk1`, `/mnt/disk2`, etc.). If identical or similar directory structures exist on multiple drives — such as after a misconfigured copy or an interrupted [Unbalanced](https://github.com/jbrodriguez/unbalance) operation — this tool can identify and help clean them up.
 
 ### Common use cases include:
 
