@@ -24,9 +24,13 @@ You can interactively **review duplicates**, choose which copies to **keep**, an
 - 📁 **Structured Reports**: Generates CSV and JSON summaries of every action.
 - 🧵 **Per-file Progress Tracking**: Live UI feedback with two progress bars (overall and current file).
 
+## Unraid Installation via Docker Template (Community Apps)
+
+Unraid Duplicate File Handler can be installed from Unraid [Community Apps](https://unraid.net/community/apps).
+
 ## Unraid Installation via Docker Template (Manual)
 
-You can install this container easily on Unraid using a prebuilt Docker template.
+You can manually install this container easily on Unraid using a prebuilt Docker template.
 
 ### 🔧 Steps:
 
