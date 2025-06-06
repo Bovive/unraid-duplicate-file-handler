@@ -70,6 +70,7 @@ button {
     display: flex;
     justify-content: space-between;
     margin-top: 2rem;
+    gap: 10px;
 }
 
 /* Left column: Form and progress bar */
@@ -89,10 +90,10 @@ button {
     background: white;
     padding: 2rem;
     border-radius: 10px;
-    max-width: 700px;
     margin: 0 auto;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     margin-top: 2rem;
+    table-layout: fixed;
 }
 
     #scans-table th, #scans-table td {
@@ -182,6 +183,11 @@ button {
     #scans-table th:nth-child(7),
     #scans-table td:nth-child(7) {
         text-align: center;
+    }
+
+    #scans-table th:nth-child(1),
+    #scans-table td:nth-child(1) {
+        white-space: normal;
     }
 
 #scans-table tbody tr:nth-child(even) {
