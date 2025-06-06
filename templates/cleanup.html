@@ -96,6 +96,15 @@ function sortTable(table, col, type, asc) {
     rows.forEach(row => tbody.appendChild(row));
 }
 
+function formatBackendTimestamp(ts) {
+    // Expects format: YYYY-MM-DD_HH-MM-SS
+    if (!ts) return "";
+    const match = ts.match(/^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})$/);
+    if (!match) return ts;
+    // match[1]=YYYY, [2]=MM, [3]=DD, [4]=HH, [5]=MM, [6]=SS
+    return `${match[2]}-${match[3]}-${match[1]} ${match[4]}:${match[5]}:${match[6]}`;
+}
+
 function renderCleanupSummary(summary) {
     const container = document.getElementById("cleanup-summary-container");
     if (!container) return;
@@ -106,7 +115,7 @@ function renderCleanupSummary(summary) {
     } else {
         html += `<table class="cleanup-summary-table" style="width:100%;margin-bottom:1em;">`;
         html += `<tr><th>Action</th><td>${summary.action ? summary.action.charAt(0).toUpperCase() + summary.action.slice(1) : ''}</td></tr>`;
-        html += `<tr><th>Time</th><td>${summary.timestamp || ''}</td></tr>`;
+        html += `<tr><th>Time</th><td>${formatBackendTimestamp(summary.timestamp) || ''}</td></tr>`;
         html += `<tr><th>Original CSV</th><td>${summary.original_csv || ''}</td></tr>`;
         html += `<tr><th>Files Attempted</th><td>${formatNumberWithCommas(summary.total_attempted || 0)}</td></tr>`;
         if (summary.total_deleted !== undefined) {
@@ -200,6 +209,14 @@ function hideCleanupProgress() {
     document.getElementById('cleanup-progress-text').textContent = '0% Complete';
 }
 
+function formatDate24(dateStr) {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr; // fallback if not a valid date
+    const pad = n => n.toString().padStart(2, '0');
+    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     hideCleanupSummary();
     hideCleanupProgress();
@@ -220,7 +237,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     const csvFile = summary.csv_file ? summary.csv_file.split('/').pop() : '';
                     const row = document.createElement("tr");
                     row.innerHTML = `
-                        <td>${summary.time_completed || "N/A"}</td>
+                        <td>${formatDate24(summary.time_completed) || "N/A"}</td>
                         <td>${summary.total_duplicates}</td>
                         <td>${summary.total_duplicate_size}</td>
                         <td>${formatDriveSummary(summary.drive_summary)}</td>

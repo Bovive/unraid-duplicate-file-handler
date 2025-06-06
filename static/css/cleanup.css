@@ -71,12 +71,14 @@ button {
     justify-content: space-between;
     margin-top: 2rem;
     gap: 10px;
+    max-width: max-content;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 /* Left column: Form and progress bar */
 .left-column {
     flex: 1;
-    max-width: 50%;
 }
 
 /* Right column: Summary */

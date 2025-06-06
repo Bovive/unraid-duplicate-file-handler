@@ -46,19 +46,10 @@ function formatDisplayDate(dateStr) {
     const [datePart, timePart] = dateStr.split('_');
     if (!datePart || !timePart) return dateStr;
     const [year, month, day] = datePart.split('-').map(Number);
-    let [hour, minute, second] = timePart.split('-').map(Number);
-    let ampm = "AM";
-    if (hour === 0) {
-        hour = 12;
-    } else if (hour === 12) {
-        ampm = "PM";
-    } else if (hour > 12) {
-        hour -= 12;
-        ampm = "PM";
-    }
+    const [hour, minute, second] = timePart.split('-').map(Number);
     return (
         `${month.toString().padStart(2, "0")}/${day.toString().padStart(2, "0")}/${year} ` +
-        `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:${second.toString().padStart(2, "0")} ${ampm}`
+        `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}:${second.toString().padStart(2, "0")}`
     );
 }
 
