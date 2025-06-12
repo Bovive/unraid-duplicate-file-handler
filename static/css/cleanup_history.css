@@ -26,20 +26,24 @@ h1 {
     justify-content: space-between;
     margin-top: 2rem;
     gap: 10px;
-    max-width: max-content;
+    min-width: max-content;
     margin-left: auto;
     margin-right: auto;
+    width: max-content;
 }
 
 /* Left column: Form and progress bar */
 .left-column {
     flex: 1;
+    margin-left: 20px;
 }
 
 /* Right column: Summary */
 .right-column {
     flex: 1;
     max-width: 50%;
+    min-width: max-content;
+    margin-right: 20px;
 }
 
 #history-table {

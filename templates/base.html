@@ -4,16 +4,10 @@
     <meta charset="UTF-8">
     <title>{% block title %}Unraid Duplicate File Handler{% endblock %}</title>
     <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 2rem;
-            background-color: #f4f4f4;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     {% block head %}{% endblock %}
 </head>
-<body>
+<body class="body">
     {% block content %}{% endblock %}
 </body>
 </html>

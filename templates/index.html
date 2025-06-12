@@ -3,57 +3,7 @@
 {% block title %}Main Menu{% endblock %}
 
 {% block head %}
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        margin: 2rem;
-        background-color: #f4f4f4;
-        justify-content: center;
-        display: grid;
-    }
-    h1 {
-        color: #333;
-    }
-    .menu {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 8px;
-        max-width: 400px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
-    .menu a {
-        display: block;
-        margin: 1rem 0;
-        padding: 0.75rem 1.5rem;
-        background-color: #4CAF50;
-        color: white;
-        text-decoration: none;
-        text-align: center;
-        border-radius: 5px;
-        font-size: 1rem;
-    }
-    .menu a:hover {
-        background-color: #45a049;
-    }
-    .footer {
-        margin-top: 2rem;
-        font-size: 0.9rem;
-        color: #666;
-        text-align: center;
-    }
-    .footer a {
-        color: #4CAF50;
-        text-decoration: none;
-    }
-    .footer a:hover {
-        text-decoration: underline;
-    }
-    .logo {
-        display: block;
-        margin: 0 auto 1rem auto;
-        max-width: 200px;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 {% endblock %}
 
 {% block content %}

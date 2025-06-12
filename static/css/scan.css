@@ -4,6 +4,7 @@ body {
     margin: 2rem;
     background-color: #f9f9f9;
     color: #333;
+    min-width: max-content;
 }
 
 h1 {
@@ -11,6 +12,8 @@ h1 {
     font-size: 2rem;
     margin-bottom: 1.5rem;
     text-align: center;
+    margin-left: 200px;
+    margin-right: 200px;
 }
 
 /* Form Styling */
@@ -22,6 +25,7 @@ form {
     margin: 0 auto;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     margin-top: 2rem;
+    width: fit-content;
 }
 
     form div {
@@ -100,6 +104,7 @@ button, .btn {
     margin-top: 2rem;
     margin-right: 15%;
     margin-left: 15%;
+    min-width: max-content;
 }
 
 /* Left column: Form and progress bar */
@@ -273,6 +278,8 @@ button, .btn {
     border-radius: 5px;
     padding: 10px;
     background: lightblue;
+    width: fit-content;
+    flex-wrap: wrap;
 }
 
 .drive-column {

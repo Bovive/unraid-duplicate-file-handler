@@ -3,6 +3,7 @@
     margin: 2rem;
     background-color: #f9f9f9;
     color: #333;
+    min-width: max-content;
 }
 
 h1 {
@@ -74,6 +75,7 @@ button {
     max-width: max-content;
     margin-left: auto;
     margin-right: auto;
+    min-width: max-content;
 }
 
 /* Left column: Form and progress bar */
@@ -84,7 +86,7 @@ button {
 /* Right column: Summary */
 .right-column {
     flex: 1;
-    max-width: 50%;
+    min-width: max-content;
 }
 
 #scans-table {
